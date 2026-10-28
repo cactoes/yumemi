@@ -14,7 +14,7 @@ file(GLOB ALL_DEPENDENCY_INCLUDES "${DEPENDENCY_DIR}/*/include")
 # ~~ compiler stuff
 if (MSVC)
     set(CUSTOM_COMPILE_OPTIONS
-        /W4 /WX /Zc:__cplusplus /MP /D "_MBCS")
+        /W4 /wd4201 /WX /Zc:__cplusplus /MP /D "_MBCS")
 else()
     set(CUSTOM_COMPILE_OPTIONS
         -Wall -Wextra -Werror -std=gnu++20)
