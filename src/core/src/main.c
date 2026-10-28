@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "rom.h"
+#include "cpu.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -16,6 +17,15 @@ int main() {
     char title[13];
     get_rom_title(rom_data, title, sizeof(title));
     printf("loaded: %s\n", title);
+
+    while (true) {
+        u32 cycles;
+
+        if (!cpu_step(&cycles)) {
+            printf("~~~ instruction failed (exiting) ~~~\n");
+            break;
+        }
+    }
 
     return 0;
 }
