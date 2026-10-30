@@ -35,8 +35,9 @@
 #define MEMORY_BUS_FLASH_START      0x0e000000u
 #define MEMORY_BUS_FLASH_SIZE       0x00010000u
 
-#define MBUS_COUNT      true
-#define MBUS_NOCOUNT    false
+#define MBUS_DEFAULT        (0u)
+#define MBUS_NOCOUNT        (1u << 0)
+#define MBUS_NOSIDE_EFFECT  (1u << 1)
 
 #define MEMORY_ADDRESS_TO_REGION(x) ((u8)(x >> 24))
 
@@ -77,12 +78,32 @@ typedef struct __memory_bus {
 
     u32 cycle_counter;
     u32 last_address;
+
+    u32 cpu_open_bus;
+    u32 bios_open_bus;
 } memory_bus_t;
+
+typedef enum {
+    MBUS_OPEN_BUS_CPU,
+    MBUS_OPEN_BUS_BIOS
+} mbus_open_bus_source_t;
 
 void memory_bus_reset(u8* rom, u64 size);
 
-u32 mbus_read32(u32 address, bool count_cycles);
-u16 mbus_read16(u32 address, bool count_cycles);
-u8 mbus_read8(u32 address, bool count_cycles);
+u32 mbus_read32(u32 address, u8 flags);
+u16 mbus_read16(u32 address, u8 flags);
+u8 mbus_read8(u32 address, u8 flags);
+
+void mbus_write32(u32 address, u32 value, u8 flags);
+void mbus_write16(u32 address, u16 value, u8 flags);
+void mbus_write8(u32 address, u8 value, u8 flags);
+
+void mbus_set_cpu_open_bus(u32 value);
+void mbus_set_bios_open_bus(u32 value);
+
+void mbus_add_cycles(u32 count);
+void mbus_add_cycles_from_address(u32 address, u32 size);
+
+u32 mbus_get_cycle_count(bool reset_count);
 
 #endif // MEMORY_BUS_H

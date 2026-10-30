@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "helper.h"
 #include "memory_bus.h"
 
 static memory_bus_t global_memory_bus;
@@ -26,6 +27,25 @@ u16 read_le16(u8* p) {
 static
 u8 read_le8(u8* p) {
     return p[0];
+}
+
+static
+void write_le32(u8* p, u32 value) {
+    p[0] = (u8)value;
+    p[1] = (u8)(value >> 8);
+    p[2] = (u8)(value >> 16);
+    p[3] = (u8)(value >> 24);
+}
+
+static
+void write_le16(u8* p, u16 value) {
+    p[0] = (u8)value;
+    p[1] = (u8)(value >> 8);
+}
+
+static
+void write_le8(u8* p, u8 value) {
+    p[0] = value;
 }
 
 static
@@ -85,6 +105,20 @@ u32 mbus_rom_read(u32 address, u32 size) {
 }
 
 static
+u32 mbus_open_bus_read(u32 address, u32 size, mbus_open_bus_source_t source) {
+    u32 value = source == MBUS_OPEN_BUS_BIOS
+        ? global_memory_bus.bios_open_bus
+        : global_memory_bus.cpu_open_bus;
+
+    switch (size) {
+        case 1: return (value >> ((address & 3u) * 8u)) & 0xffu;
+        case 2: return (value >> ((address & 2u) * 8u)) & 0xffffu;
+        case 4: return value;
+        default: return 0;
+    }
+}
+
+static
 u8* memory_address_to_ram(u32 address) {
     switch (MEMORY_ADDRESS_TO_REGION(address)) {
         case MEMORY_BUS_REGION_EWRAM:
@@ -128,36 +162,211 @@ void memory_bus_reset(u8* rom, u64 size) {
     mbus->last_address = 0xffffffffu;
 }
 
-u32 mbus_read32(u32 address, bool count_cycles) {
+u32 mbus_read32(u32 address, u8 flags) {
     address &= ~3u;
 
-    if (count_cycles == MBUS_COUNT)
+    if (!(MASK_IS_SET(flags, MBUS_NOCOUNT)))
         mbus_handle_access_cycles(address, 4);
 
-    u8 region = mbus_address_to_region(address);
+    const u8 region = mbus_address_to_region(address);
 
-    // if (region == MEMORY_BUS_REGION_IO)
-    //     return io_read32(address & 0x00ffffffu);
+    if (region == MEMORY_BUS_REGION_IO)
+        return io_read32(address & 0x00ffffffu, flags);
 
-    // if (region == MEMORY_BUS_REGION_BIOS)
-    //     return global_memory_bus.bios_open_bus;
+    if (region == MEMORY_BUS_REGION_BIOS) {
+        if (address >= (MEMORY_BUS_BIOS_START + MEMORY_BUS_BIOS_SIZE))
+            return mbus_open_bus_read(address, 4, MBUS_OPEN_BUS_BIOS);
+
+        // TODO @since 30/10/2026 -- 20:25
+        // better bios handling
+        printf("mbus_read32 bios address out of range: 0x%08x (returning open bus)\n", address);
+        return mbus_open_bus_read(address, 4, MBUS_OPEN_BUS_BIOS);
+    }
 
     if (is_rom_region_or_mirror(region))
         return mbus_rom_read(address, 4);
 
     if (is_flash_region_or_mirror(region))
-        return (u32)flash_read8(address) * 0x01010101u;
+        return (u32)flash_read8(address, flags) * 0x01010101u;
 
     const u8 *p = mbus_ram_ptr(address);
-    if (!p) {
-        // TODO @since 28/10/2026 -- 23:57
-        // open bus
-        printf("memory bus read32 unhandled region: 0x%08X\n", address);
-        return 0;
-    }
+    if (!p)
+        return mbus_open_bus_read(address, 4, MBUS_OPEN_BUS_CPU);
 
     return read_le32(p);
 }
 
-u16 mbus_read16(u32 address, bool count_cycles);
-u8 mbus_read8(u32 address, bool count_cycles);
+u16 mbus_read16(u32 address, u8 flags) {
+    address &= ~1u;
+
+    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+        mbus_handle_access_cycles(address, 2);
+
+    const u8 region = mbus_address_to_region(address);
+
+    if (region == MEMORY_BUS_REGION_IO)
+        return io_read16(address & 0x00ffffffu, flags);
+
+    if (region == MEMORY_BUS_REGION_BIOS) {
+        if (address >= (MEMORY_BUS_BIOS_START + MEMORY_BUS_BIOS_SIZE))
+            return (u16)mbus_open_bus_read(address, 2, MBUS_OPEN_BUS_CPU);
+
+        // TODO @since 30/10/2026 -- 20:25
+        // better bios handling
+        return (u16)mbus_open_bus_read(address, 2, MBUS_OPEN_BUS_BIOS);
+    }
+
+    if (is_rom_region_or_mirror(region))
+        return (u16)mbus_rom_read(address, 2);
+
+    if (is_flash_region_or_mirror(region))
+        return (u16)((u32)flash_read8(address) * 0x0101u, flags);
+
+    const u8 *p = mbus_ram_ptr(address);
+    if (!p)
+        return (u16)mbus_open_bus_read(address, 2, MBUS_OPEN_BUS_CPU);
+
+    return read_le16(p);
+}
+
+u8 mbus_read8(u32 address, u8 flags) {
+    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+        mbus_handle_access_cycles(address, 1);
+
+    const u8 region = mbus_address_to_region(address);
+
+    if (region == MEMORY_BUS_REGION_IO)
+        return io_read8(address & 0x00ffffffu, flags);
+
+    if (region == MEMORY_BUS_REGION_BIOS) {
+        if (address >= (MEMORY_BUS_BIOS_START + MEMORY_BUS_BIOS_SIZE))
+            return (u8)mbus_open_bus_read(address, 1, MBUS_OPEN_BUS_CPU);
+
+        // TODO @since 30/10/2026 -- 20:25
+        // better bios handling
+        return (u8)mbus_open_bus_read(address, 1, MBUS_OPEN_BUS_BIOS);
+    }
+
+    if (is_rom_region_or_mirror(region))
+        return (u8)mbus_rom_read(address, 1);
+
+    if (is_flash_region_or_mirror(region))
+        return flash_read8(address, flags);
+
+    const u8 *p = mbus_ram_ptr(address);
+    if (!p)
+        return (u8)mbus_open_bus_read(address, 1, MBUS_OPEN_BUS_CPU);
+
+    return read_le8(p);
+}
+
+void mbus_write32(u32 address, u32 value, u8 flags) {
+    address &= ~3u;
+
+    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+        mbus_handle_access_cycles(address, 4);
+
+    const u8 region = mbus_address_to_region(address);
+
+    if (region == MEMORY_BUS_REGION_IO) {
+        io_write32(address & 0x00ffffffu, value, flags);
+        return;
+    }
+
+    if (is_rom_region_or_mirror(region))
+        return;
+
+    if (mbus_is_flash_region(region)) {
+        flash_write8(address, (u8)value, flags);
+        return;
+    }
+
+    u8* p = mbus_ram_ptr(address);
+    if (!p)
+        return;
+
+    write_le32(p, value);
+}
+
+void mbus_write16(u32 address, u16 value, u8 flags) {
+    address &= ~1u;
+
+    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+        mbus_handle_access_cycles(address, 2);
+
+    const u8 region = mbus_address_to_region(address);
+
+    if (region == MEMORY_BUS_REGION_IO) {
+        io_write16(address & 0x00ffffffu, value, flags);
+        return;
+    }
+
+    if (region == MEMORY_BUS_REGION_BIOS)
+        return;
+
+    if (is_rom_region_or_mirror(region))
+        return;
+
+    if (mbus_is_flash_region(region)) {
+        flash_write8(address, (u8)value, flags);
+        return;
+    }
+
+    u8 *p = mbus_ram_ptr(address);
+    if (!p)
+        return;
+
+    write_le16(p, value);
+}
+
+void mbus_write8(u32 address, u8 value, u8 flags) {
+    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+        mbus_handle_access_cycles(address, 1);
+
+    const u8 region = mbus_address_to_region(address);
+
+    if (region == MEMORY_BUS_REGION_IO) {
+        io_write8(address & 0x00ffffffu, value, flags);
+        return;
+    }
+
+    if (region == MEMORY_BUS_REGION_BIOS)
+        return;
+
+    if (is_rom_region_or_mirror(region))
+        return;
+
+    if (mbus_is_flash_region(region)) {
+        flash_write8(address, value, flags);
+        return;
+    }
+
+    u8 *p = mbus_ram_ptr(address);
+    if (!p)
+        return;
+
+    write_le8(p, value);
+}
+
+void mbus_set_cpu_open_bus(u32 value) {
+    global_memory_bus.cpu_open_bus = value;
+}
+
+void mbus_set_bios_open_bus(u32 value) {
+    global_memory_bus.bios_open_bus = value;
+}
+
+void mbus_add_cycles(u32 count) {
+    global_memory_bus.cycle_counter += count;
+}
+
+void mbus_add_cycles_from_address(u32 address, u32 size) {
+    mbus_add_cycles(mbus_get_cycle_count(address, size, true));
+}
+
+u32 mbus_get_cycle_count(bool reset_count) {
+    u32 cycles = global_memory_bus.cycle_counter;
+    if (reset_count)
+        global_memory_bus.cycle_counter = 0;
+    return cycles;
+}
