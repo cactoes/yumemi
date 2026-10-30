@@ -8,6 +8,8 @@
 #ifndef CPU_H
 #define CPU_H
 
+#define CPU_IRQ_APPROX_OVERHEAD 3u
+
 #define CPU_START_ADDRESS   0x08000000u
 #define IRQ_VECTOR          0x00000018
 #define BIOS_IRQ_RETURN     0x00000138u
