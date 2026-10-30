@@ -40,6 +40,7 @@
 #define MBUS_NOSIDE_EFFECT  (1u << 1)
 
 #define MEMORY_ADDRESS_TO_REGION(x) ((u8)(x >> 24))
+#define MEMORY_REGION_TO_ADDRESS(x) ((u32)(x << 24))
 
 #include "typedef.h"
 
@@ -105,5 +106,7 @@ void mbus_add_cycles(u32 count);
 void mbus_add_cycles_from_address(u32 address, u32 size);
 
 u32 mbus_get_total_cycle_count(bool reset_count);
+
+u8* mbus_get_region(u8 region);
 
 #endif // MEMORY_BUS_H

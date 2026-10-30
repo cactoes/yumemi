@@ -1,9 +1,8 @@
-#include "timer.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include "timer.h"
 #include "gba_io.h"
-#include <stdbool.h>
-#include <string.h>
 
 static const u32 timer_shifts[TIMER_COUNT] = { 0, 6, 8, 10 };
 static timer_state_t global_timer;

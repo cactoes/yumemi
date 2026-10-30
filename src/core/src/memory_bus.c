@@ -5,6 +5,7 @@
 #include "helper.h"
 #include "memory_bus.h"
 #include "flash.h"
+#include "gba_io.h"
 
 static memory_bus_t global_memory_bus;
 
@@ -16,17 +17,17 @@ memory_bus_t* get_memory_bus() {
 }
 
 static
-u32 read_le32(u8* p) {
+u32 read_le32(const u8* p) {
     return (u32)p[0] | ((u32)p[1] << 8) | ((u32)p[2] << 16) | ((u32)p[3] << 24);
 }
 
 static
-u16 read_le16(u8* p) {
+u16 read_le16(const u8* p) {
     return (u16)(p[0] | (p[1] << 8));
 }
 
 static
-u8 read_le8(u8* p) {
+u8 read_le8(const u8* p) {
     return p[0];
 }
 
@@ -378,4 +379,8 @@ u32 mbus_get_total_cycle_count(bool reset_count) {
     if (reset_count)
         global_memory_bus.cycle_counter = 0;
     return cycles;
+}
+
+u8* mbus_get_region(u8 region) {
+    return memory_address_to_ram(MEMORY_REGION_TO_ADDRESS(region));
 }

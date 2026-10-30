@@ -4,6 +4,7 @@
 #include "cpu.h"
 #include "memory_bus.h"
 #include "flash.h"
+#include "timer.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -22,6 +23,7 @@ int main() {
 
     memory_bus_reset(rom_data, rom_size);
     flash_reset();
+    timer_reset();
     cpu_reset(true);
 
     while (true) {
@@ -31,6 +33,8 @@ int main() {
             printf("~~~ instruction failed (exiting) ~~~\n");
             break;
         }
+
+        timer_step(cycles);
     }
 
     return 0;

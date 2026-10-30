@@ -8,8 +8,6 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#pragma once
-
 #include "typedef.h"
 
 #define TIMER_COUNT 4
