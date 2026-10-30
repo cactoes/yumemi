@@ -247,20 +247,44 @@ void cpu_reset(bool skip_bios) {
     cpu->sp = 0x03007f00u;
 
     cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_SYSTEM)] = cpu->sp;
-    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_SUPERVISOR)] = 0x03007FE0u;
-    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_IRQ)] = 0x03007FA0u;
+    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_SUPERVISOR)] = 0x03007fe0u;
+    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_IRQ)] = 0x03007fa0u;
 
     mbus_set_bios_open_bus(0xe129f000u);
 }
 
 static
+const arm_instruction_handler_t arm_handlers[8] = {
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static
+const thumb_instruction_handler_t thumb_handlers[8] = {
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static
 bool thumb_decode(u16 instruction) {
-    return false;
+    u16 instruction_handler = (instruction >> 13) & 0x7;
+
+    if (thumb_handlers[instruction_handler] == 0) {
+        printf("(thumb) unimplemented handler: %d\n", instruction_handler);
+        return false;
+    }
+
+    return thumb_handlers[instruction_handler](instruction);
 }
 
 static
 bool arm_decode(u32 instruction) {
-    return false;
+    u32 instruction_handler = (instruction >> 25) & 0x7;
+
+    if (arm_handlers[instruction_handler] == 0) {
+        printf("(arm) unimplemented handler: %d\n", instruction_handler);
+        return false;
+    }
+
+    return arm_handlers[instruction_handler](instruction);
 }
 
 static
