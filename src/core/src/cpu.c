@@ -13,7 +13,26 @@ cpu_t* get_cpu() {
 }
 
 void cpu_reset(bool skip_bios) {
-    skip_bios;
+    cpu_t* cpu = get_cpu();
+    memset(cpu, 0, sizeof(cpu_t));
+
+    cpu->skip_bios_mode = skip_bios;
+
+    if (!skip_bios) {
+        cpu->cpsr = PSR_MODE_SUPERVISOR | PSR_IRQ_DISABLE | PSR_FIQ_DISABLE;
+        cpu->pc = 0;
+        return;
+    }
+
+    cpu->cpsr = PSR_MODE_SYSTEM;
+    cpu->pc = CPU_START_ADDRESS;
+    cpu->sp = 0x03007f00u;
+
+    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_SYSTEM)] = cpu->sp;
+    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_SUPERVISOR)] = 0x03007FE0u;
+    cpu->bank_sp[cpu_mode_to_bank(PSR_MODE_IRQ)] = 0x03007FA0u;
+
+    mbus_set_bios_open_bus(0xe129f000u);
 }
 
 bool cpu_fetch() {
@@ -27,6 +46,7 @@ bool cpu_fetch() {
     mbus_set_cpu_open_bus(prefetched);
 
     // check
+    instruction;
 
     // decode
 

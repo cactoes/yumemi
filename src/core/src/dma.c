@@ -75,7 +75,7 @@ void dma_finish(u32 ch) {
         io_request_irq(IRQ_DMA(ch));
 }
 
-void dma_reset(void) {
+void dma_reset() {
     memset(&global_dma, 0, sizeof(global_dma));
 }
 

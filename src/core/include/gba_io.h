@@ -8,8 +8,6 @@
 #ifndef GBA_IO_H
 #define GBA_IO_H
 
-#include "typedef.h"
-
 #define IO_DISPCNT      0x000
 #define IO_DISPSTAT     0x004
 #define IO_VCOUNT       0x006
@@ -38,6 +36,8 @@
 #define IO_DEFAULT        (0u)
 #define IO_NOCOUNT        (1u << 0)
 #define IO_NOSIDE_EFFECT  (1u << 1)
+
+#include "typedef.h"
 
 void io_reset();
 

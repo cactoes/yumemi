@@ -7,6 +7,7 @@
 #include "timer.h"
 #include "gba_io.h"
 #include "dma.h"
+#include "ppu.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -44,7 +45,11 @@ int main() {
             }
         }
 
+        ppu_step(cycles);
         timer_step(cycles);
+
+        if (ppu_take_frame_ready())
+            ppu_get_framebuffer();
     }
 
     return 0;

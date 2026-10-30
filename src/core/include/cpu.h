@@ -8,6 +8,61 @@
 #ifndef CPU_H
 #define CPU_H
 
+#define CPU_START_ADDRESS   0x08000000u
+#define IRQ_VECTOR          0x00000018
+#define BIOS_IRQ_RETURN     0x00000138u
+#define IRQ_USER_HANDLER    0x03007FFCu
+
+#define PSR_N (1u << 31)
+#define PSR_Z (1u << 30)
+#define PSR_C (1u << 29)
+#define PSR_V (1u << 28)
+#define PSR_Q (1u << 27)
+#define PSR_I (1u << 7)
+#define PSR_F (1u << 6)
+#define PSR_T (1u << 5)
+
+#define PSR_MODE_USER       0x10u
+#define PSR_MODE_FIQ        0x11u
+#define PSR_MODE_IRQ        0x12u
+#define PSR_MODE_SUPERVISOR 0x13u
+#define PSR_MODE_ABORT      0x17u
+#define PSR_MODE_UNDEFINED  0x1bu
+#define PSR_MODE_SYSTEM     0x1fu
+
+#define PSR_MODE_MASK       0x1fu
+#define PSR_FLAGS_MASK      0xf0000000u
+#define PSR_T_BIT           (1u << 5)
+#define PSR_IRQ_DISABLE     (1u << 7)
+#define PSR_FIQ_DISABLE     (1u << 6)
+
+#define PSR_COND_EQ    0x0u
+#define PSR_COND_NE    0x1u
+#define PSR_COND_CS_HS 0x2u
+#define PSR_COND_CC_LO 0x3u
+#define PSR_COND_MI    0x4u
+#define PSR_COND_PL    0x5u
+#define PSR_COND_VS    0x6u
+#define PSR_COND_VC    0x7u
+#define PSR_COND_HI    0x8u
+#define PSR_COND_LS    0x9u
+#define PSR_COND_GE    0xau
+#define PSR_COND_LT    0xbu
+#define PSR_COND_GT    0xcu
+#define PSR_COND_LE    0xdu
+#define PSR_COND_AL    0xeu
+
+#define SWI_SOFT_RESET              0x00
+#define SWI_REGISTER_RAM_RESET      0x01
+#define SWI_HALT                    0x02
+#define SWI_INTR_WAIT               0x04
+#define SWI_VBLANK_INTR_WAIT        0x05
+#define SWI_CPU_SET                 0x0b
+#define SWI_CPU_FAST_SET            0x0c
+#define SWI_OBJ_AFFINE_SET          0x0f
+#define SWI_LZ77_UNCOMPRESS_WRAM    0x11
+#define SWI_LZ77_UNCOMPRESS_VRAM    0x12
+
 #include "typedef.h"
 
 typedef struct __cpu {
