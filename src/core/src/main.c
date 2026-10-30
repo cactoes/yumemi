@@ -5,6 +5,8 @@
 #include "memory_bus.h"
 #include "flash.h"
 #include "timer.h"
+#include "gba_io.h"
+#include "dma.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -22,6 +24,8 @@ int main() {
     printf("loaded: %s\n", title);
 
     memory_bus_reset(rom_data, rom_size);
+    dma_reset();
+    io_reset();
     flash_reset();
     timer_reset();
     cpu_reset(true);
@@ -29,9 +33,15 @@ int main() {
     while (true) {
         u32 cycles;
 
-        if (!cpu_step(&cycles)) {
-            printf("~~~ instruction failed (exiting) ~~~\n");
-            break;
+        if (dma_is_active()) {
+            dma_step(&cycles);
+        } else {
+            if (!io_cpu_handle_irq(&cycles)) {
+                if (!cpu_step(&cycles)) {
+                    printf("~~~ instruction failed (exiting) ~~~\n");
+                    break;
+                }
+            }
         }
 
         timer_step(cycles);
