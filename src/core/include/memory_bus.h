@@ -104,6 +104,6 @@ void mbus_set_bios_open_bus(u32 value);
 void mbus_add_cycles(u32 count);
 void mbus_add_cycles_from_address(u32 address, u32 size);
 
-u32 mbus_get_cycle_count(bool reset_count);
+u32 mbus_get_total_cycle_count(bool reset_count);
 
 #endif // MEMORY_BUS_H

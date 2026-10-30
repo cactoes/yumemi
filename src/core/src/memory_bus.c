@@ -364,7 +364,7 @@ void mbus_add_cycles_from_address(u32 address, u32 size) {
     mbus_add_cycles(mbus_get_cycle_count(address, size, true));
 }
 
-u32 mbus_get_cycle_count(bool reset_count) {
+u32 mbus_get_total_cycle_count(bool reset_count) {
     u32 cycles = global_memory_bus.cycle_counter;
     if (reset_count)
         global_memory_bus.cycle_counter = 0;

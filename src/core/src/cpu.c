@@ -40,7 +40,7 @@ bool cpu_step(u32* cycles) {
     // irq checks
 
     bool result = cpu_fetch();
-    u32 cycles = mbus_get_cycle_count(true);
+    u32 cycles = mbus_get_total_cycle_count(true);
     *cycles = cycles ? cycles : 1;
     return result;
 }
