@@ -3,6 +3,7 @@
 #include "rom.h"
 #include "cpu.h"
 #include "memory_bus.h"
+#include "flash.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -20,6 +21,7 @@ int main() {
     printf("loaded: %s\n", title);
 
     memory_bus_reset(rom_data, rom_size);
+    flash_reset();
     cpu_reset(true);
 
     while (true) {

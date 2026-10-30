@@ -34,13 +34,12 @@ bool cpu_fetch() {
 }
 
 bool cpu_step(u32* cycles) {
-    cpu_t* cpu = get_cpu();
-    mbus_get_cycle_count(true);
+    mbus_get_total_cycle_count(true);
 
     // irq checks
 
     bool result = cpu_fetch();
-    u32 cycles = mbus_get_total_cycle_count(true);
-    *cycles = cycles ? cycles : 1;
+    u32 c = mbus_get_total_cycle_count(true);
+    *cycles = c ? c : 1;
     return result;
 }
