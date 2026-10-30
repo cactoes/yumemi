@@ -253,22 +253,40 @@ void cpu_reset(bool skip_bios) {
     mbus_set_bios_open_bus(0xe129f000u);
 }
 
+static
+bool thumb_decode(u16 instruction) {
+    return false;
+}
+
+static
+bool arm_decode(u32 instruction) {
+    return false;
+}
+
+static
 bool cpu_fetch() {
     cpu_t* cpu = get_cpu();
+    u32 address = cpu->pc;
 
-    u32 instruction_address = cpu->pc;
-    u32 instruction = mbus_read32(instruction_address, MBUS_DEFAULT);
-    cpu->pc += 4;
+    if (is_thumb_mode()) {
+        u16 instruction = mbus_read16(address, MBUS_DEFAULT);
+        cpu->pc = address + 2;
 
-    u32 prefetched = mbus_read32(instruction_address + 8, MBUS_NOCOUNT | MBUS_NOSIDE_EFFECT);
-    mbus_set_cpu_open_bus(prefetched);
+        u32 bus_value = (u32)instruction;
+        mbus_set_cpu_open_bus(bus_value | (bus_value << 16));
 
-    // check
-    instruction;
+        return thumb_decode(instruction);
+    }
 
-    // decode
+    u32 instruction = mbus_read32(address, MBUS_DEFAULT);
+    cpu->pc = address + 4u;
 
-    return false;
+    mbus_set_cpu_open_bus(instruction);
+
+    if (!cpu_check_instruction_cond(instruction >> 28, cpu->cpsr))
+        return true;
+
+    return arm_decode(instruction);
 }
 
 bool cpu_step(u32* cycles) {
