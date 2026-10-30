@@ -279,7 +279,7 @@ bool cpu_fetch() {
     }
 
     u32 instruction = mbus_read32(address, MBUS_DEFAULT);
-    cpu->pc = address + 4u;
+    cpu->pc = address + 4;
 
     mbus_set_cpu_open_bus(instruction);
 
