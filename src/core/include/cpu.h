@@ -61,6 +61,7 @@
 #define SWI_VBLANK_INTR_WAIT        0x05
 #define SWI_CPU_SET                 0x0b
 #define SWI_CPU_FAST_SET            0x0c
+#define SWI_BG_AFFINE_SET           0x0e
 #define SWI_OBJ_AFFINE_SET          0x0f
 #define SWI_LZ77_WRAM               0x11
 #define SWI_LZ77_VRAM               0x12

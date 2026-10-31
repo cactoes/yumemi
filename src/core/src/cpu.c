@@ -447,6 +447,46 @@ bool bios_hle_obj_affine_set() {
 }
 
 static
+bool bios_hle_bg_affine_set() {
+    cpu_t* cpu = get_cpu();
+    u32 src = cpu->r[0];
+    u32 dst = cpu->r[1];
+    u32 count = cpu->r[2];
+
+    for (u32 index = 0; index < count; index++) {
+        int32_t ox = (int32_t)mbus_read32(src, MBUS_DEFAULT);
+        int32_t oy = (int32_t)mbus_read32(src + 4, MBUS_DEFAULT);
+        int32_t cx = bios_hle_read_s16(src + 8);
+        int32_t cy = bios_hle_read_s16(src + 10);
+        int32_t sx = bios_hle_read_s16(src + 12);
+        int32_t sy = bios_hle_read_s16(src + 14);
+        u32 angle = mbus_read16(src + 16, MBUS_DEFAULT) >> 8;
+        src += 20;
+
+        int32_t sine = bios_hle_sin_approx(angle);
+        int32_t cosine = bios_hle_sin_approx(angle + 64);
+
+        int32_t pa = bios_hle_fixed14_product(sx, cosine);
+        int32_t pb = bios_hle_fixed14_product(-sx, sine);
+        int32_t pc = bios_hle_fixed14_product(sy, sine);
+        int32_t pd = bios_hle_fixed14_product(sy, cosine);
+
+        int32_t dx = ox - (pa * cx + pb * cy);
+        int32_t dy = oy - (pc * cx + pd * cy);
+
+        mbus_write16(dst, (u16)pa, MBUS_DEFAULT);
+        mbus_write16(dst + 2, (u16)pb, MBUS_DEFAULT);
+        mbus_write16(dst + 4, (u16)pc, MBUS_DEFAULT);
+        mbus_write16(dst + 6, (u16)pd, MBUS_DEFAULT);
+        mbus_write32(dst + 8, (u32)dx, MBUS_DEFAULT);
+        mbus_write32(dst + 12, (u32)dy, MBUS_DEFAULT);
+        dst += 16;
+    }
+
+    return true;
+}
+
+static
 bool bios_hle_lz77_decode(u32 src, u8* out, u32 size) {
     u32 written = 0u;
     while (written < size) {
@@ -543,6 +583,8 @@ bool bios_hle_dispatch(u32 service) {
             return bios_hle_cpu_set(true);
         case SWI_OBJ_AFFINE_SET:
             return bios_hle_obj_affine_set();
+        case SWI_BG_AFFINE_SET:
+            return bios_hle_bg_affine_set();
         case SWI_LZ77_WRAM:
             return bios_hle_lz77_uncompress(LZ77_WRAM);
         case SWI_LZ77_VRAM:
