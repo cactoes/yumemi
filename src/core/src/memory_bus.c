@@ -161,11 +161,11 @@ void memory_bus_reset(u8* rom, u64 size) {
     mbus->rom.data = rom;
     mbus->rom.size = size;
 
-    mbus->ram.iwr = calloc(1, MEMORY_BUS_OAM_SIZE);
-    mbus->ram.ewr = calloc(1, MEMORY_BUS_OAM_SIZE);
-    mbus->ram.io = calloc(1, MEMORY_BUS_OAM_SIZE);
-    mbus->ram.palette = calloc(1, MEMORY_BUS_OAM_SIZE);
-    mbus->ram.video = calloc(1, MEMORY_BUS_OAM_SIZE);
+    mbus->ram.iwr = calloc(1, MEMORY_BUS_IWRAM_SIZE);
+    mbus->ram.ewr = calloc(1, MEMORY_BUS_EWRAM_SIZE);
+    mbus->ram.io = calloc(1, MEMORY_BUS_IO_SIZE);
+    mbus->ram.palette = calloc(1, MEMORY_BUS_PALETTE_SIZE);
+    mbus->ram.video = calloc(1, MEMORY_BUS_VRAM_SIZE);
     mbus->ram.oam = calloc(1, MEMORY_BUS_OAM_SIZE);
 
     mbus->cycle_counter = 0;
