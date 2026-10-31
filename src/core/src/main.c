@@ -8,6 +8,7 @@
 #include "gba_io.h"
 #include "dma.h"
 #include "ppu.h"
+#include "renderer.h"
 
 #define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
@@ -32,7 +33,12 @@ int main() {
     ppu_reset();
     cpu_reset(true);
 
-    while (true) {
+    render_init(PPU_WIDTH, PPU_HEIGHT);
+    render_update_events();
+
+    while (!render_should_close()) {
+        render_update_events();
+
         u32 cycles;
 
         if (dma_is_active()) {
@@ -50,8 +56,11 @@ int main() {
         timer_step(cycles);
 
         if (ppu_take_frame_ready())
-            ppu_get_framebuffer();
+            render_present(ppu_get_framebuffer());
     }
+
+    render_close();
+    // free(rom_data)
 
     return 0;
 }
