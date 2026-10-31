@@ -133,6 +133,8 @@ typedef struct __ppu {
     ppu_reference_t reference[2];
     ppu_registers_t registers;
     ppu_line_t line;
+
+    bool render_enabled;
 } ppu_t ;
 
 void ppu_reset();
@@ -143,5 +145,8 @@ bool ppu_take_frame_ready();
 u32* ppu_get_framebuffer();
 
 void ppu_on_io_write(u32 offset);
+
+void ppu_set_render_enabled(bool enabled);
+bool ppu_render_enabled();
 
 #endif // PPU_H

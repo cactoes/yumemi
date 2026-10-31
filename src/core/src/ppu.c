@@ -530,7 +530,9 @@ void enter_hblank() {
     global_ppu.in_hblank = true;
 
     if (global_ppu.vcount < VISIBLE_LINES) {
-        render_scanline();
+        if (global_ppu.render_enabled)
+            render_scanline();
+
         advance_affine();
     }
 
@@ -616,4 +618,12 @@ bool ppu_take_frame_ready() {
 
 u32* ppu_get_framebuffer() {
     return global_ppu.framebuffer;
+}
+
+void ppu_set_render_enabled(bool enabled) {
+    global_ppu.render_enabled = enabled;
+}
+
+bool ppu_render_enabled() {
+    return global_ppu.render_enabled;
 }

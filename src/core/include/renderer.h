@@ -21,9 +21,6 @@
 
 #define WINDOW_NAME "yumemi - gba emulator"
 #define DISPLAY_SCALE 4
-// TODO @since 31/10/2026 -- 15:09
-// replace with proper 59.7275hz
-#define TARGET_FPS 60
 
 #include "typedef.h"
 

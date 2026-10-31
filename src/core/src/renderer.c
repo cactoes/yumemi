@@ -11,7 +11,6 @@ void render_init(u32 width, u32 height) {
     global_height = height;
 
     InitWindow(width * DISPLAY_SCALE, height * DISPLAY_SCALE, WINDOW_NAME);
-    SetTargetFPS(TARGET_FPS);
 
     Image image = {
         .data = 0,
@@ -76,10 +75,6 @@ void render_handle_events() {
 }
 
 void render_update_events() {
-    static u32 poll_counter = 0;
-
-    if ((poll_counter++ & 0x0fff) == 0) {
-        render_poll_events();
-        render_handle_events();
-    }
+    render_poll_events();
+    render_handle_events();
 }
