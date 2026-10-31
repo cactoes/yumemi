@@ -1,12 +1,62 @@
 #include <string.h>
-
+#include <stdio.h>
 #include "flash.h"
 #include "helper.h"
 
 static flash_t global_flash;
 
-void flash_reset() {
+static
+void flash_make_sav_path(const char* rom_path, char* out, size_t size) {
+    snprintf(out, size, "%s", rom_path);
+
+    char* slash = strrchr(out, '/');
+    char* bslash = strrchr(out, '\\');
+    if (bslash > slash)
+        slash = bslash;
+
+    char* dot = strrchr(out, '.');
+    if (dot && (!slash || dot > slash))
+        *dot = '\0';
+
+    size_t len = strlen(out);
+    if (len + 5 <= size)
+        memcpy(out + len, ".sav", 5);
+}
+
+static
+bool flash_load() {
+    FILE* fp = fopen(global_flash.sav_path, "rb");
+    if (!fp)
+        return false;
+
+    size_t n = fread(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
+    fclose(fp);
+    return n > 0;
+}
+
+bool flash_save() {
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", global_flash.sav_path);
+
+    FILE* fp = fopen(tmp, "wb");
+    if (!fp)
+        return false;
+
+    size_t n = fwrite(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
+    fclose(fp);
+    if (n != FLASH_CAPACITY_128K)
+        return false;
+
+    remove(global_flash.sav_path);
+    return rename(tmp, global_flash.sav_path) == 0;
+}
+
+void flash_reset(const char* rom_path) {
+    memset(&global_flash, 0, sizeof(global_flash));
     memset(global_flash.flash_data, 0xff, FLASH_CAPACITY_128K);
+
+    flash_make_sav_path(rom_path, global_flash.sav_path, sizeof(global_flash.sav_path));
+    flash_load();
 }
 
 u8 flash_read8(u32 address, u8 flags) {

@@ -28,7 +28,7 @@ int main() {
     memory_bus_reset(rom_data, rom_size);
     dma_reset();
     io_reset();
-    flash_reset();
+    flash_reset(ROM_FILE_PATH);
     timer_reset();
     ppu_reset();
     cpu_reset(true);

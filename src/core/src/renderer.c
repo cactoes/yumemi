@@ -9,6 +9,7 @@
 #include "renderer.h"
 #include "gba_io.h"
 #include "ppu.h"
+#include "flash.h"
 
 static
 u64 time_now_ns() {
@@ -145,6 +146,17 @@ void render_handle_frame() {
     // }
 
     render_update_events();
+
+    static u32 flash_dirty_counter = 0;
+    if (flash_is_dirty()) {
+        if (flash_dirty_counter++ > 60) {
+            flash_save();
+            flash_mark_clean();
+            flash_dirty_counter = 0;
+        }
+    } else {
+        flash_dirty_counter = 0;
+    }
 
     frame_time_t* ft = &frame_time;
 
