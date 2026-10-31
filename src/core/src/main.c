@@ -37,7 +37,9 @@ int main() {
     render_update_events();
 
     while (!render_should_close()) {
-        render_update_events();
+        static u32 counter = 0;
+        if ((counter++ & 0xfff) == 0)
+            render_poll_events();
 
         u32 cycles;
 
@@ -55,8 +57,7 @@ int main() {
         ppu_step(cycles);
         timer_step(cycles);
 
-        if (ppu_take_frame_ready())
-            render_present(ppu_get_framebuffer());
+        render_handle_frame();
     }
 
     render_close();

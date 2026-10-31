@@ -1,14 +1,66 @@
+#define WIN32_LEAN_AND_MEAN
+#define NOGDI
+#define NOUSER
+#include <windows.h>
+#include <timeapi.h>
 #include <raylib.h>
 #undef bool
+#include <stdio.h>
 #include "renderer.h"
 #include "gba_io.h"
+#include "ppu.h"
+
+static
+u64 time_now_ns() {
+    static LARGE_INTEGER freq;
+    LARGE_INTEGER counter;
+
+    if (freq.QuadPart == 0)
+        QueryPerformanceFrequency(&freq);
+
+    QueryPerformanceCounter(&counter);
+
+    u64 secs = (u64)(counter.QuadPart / freq.QuadPart);
+    u64 rem  = (u64)(counter.QuadPart % freq.QuadPart);
+    return secs * 1000000000ull + rem * 1000000000ull / (u64)freq.QuadPart;
+}
+
+static
+void sleep_until_ns(u64 deadline) {
+    static bool timer_init = false;
+    if (!timer_init) {
+        timeBeginPeriod(1);
+        timer_init = true;
+    }
+
+    const u64 spin_margin = 1500000ull;
+
+    u64 now = time_now_ns();
+    if (now >= deadline)
+        return;
+
+    if (deadline - now > spin_margin) {
+        u64 sleep_ms = (deadline - now - spin_margin) / 1000000ull;
+        if (sleep_ms > 0)
+            Sleep((DWORD)sleep_ms);
+    }
+
+    while (time_now_ns() < deadline)
+        YieldProcessor();
+}
 
 static Texture2D texture;
 static u32 global_width, global_height;
+static frame_time_t frame_time;
 
 void render_init(u32 width, u32 height) {
     global_width = width;
     global_height = height;
+
+    frame_time.speed_percent = 100;
+    frame_time.auto_frameskip = true;
+    // frame_time.speed_percent = 0;
+    // frame_time.frameskip = 4;
 
     InitWindow(width * DISPLAY_SCALE, height * DISPLAY_SCALE, WINDOW_NAME);
 
@@ -49,7 +101,6 @@ void render_close() {
     CloseWindow();
 }
 
-static
 void render_poll_events() {
     PollInputEvents();
 }
@@ -77,4 +128,48 @@ void render_handle_events() {
 void render_update_events() {
     render_poll_events();
     render_handle_events();
+}
+
+void render_handle_frame() {
+    if (!ppu_take_frame_ready())
+        return;
+
+    // static u64 last_print = 0;
+    // static u32 frames = 0;
+    // frames++;
+    // u64 t = time_now_ns();
+    // if (t - last_print >= 1000000000) {
+    //     printf("emulated fps: %u\n", frames);
+    //     frames = 0;
+    //     last_print = t;
+    // }
+
+    render_update_events();
+
+    frame_time_t* ft = &frame_time;
+
+    bool was_rendered = ppu_render_enabled();
+    if (was_rendered)
+        render_present(ppu_get_framebuffer());
+
+    u64 now = time_now_ns();
+    if (ft->speed_percent != 0) {
+        ft->next_deadline_ns += GBA_FRAME_NS * 100u / ft->speed_percent;
+
+        if (now < ft->next_deadline_ns)
+            sleep_until_ns(ft->next_deadline_ns);
+        else if (now - ft->next_deadline_ns > GBA_FRAME_NS * 5u)
+            ft->next_deadline_ns = now;
+    }
+
+    bool render;
+    if (ft->auto_frameskip && ft->speed_percent != 0) {
+        bool behind = time_now_ns() > ft->next_deadline_ns + GBA_FRAME_NS;
+        render = !behind || ft->consecutive_skips >= 9;
+    } else {
+        render = (++ft->frame_counter % (ft->frameskip + 1)) == 0;
+    }
+
+    ft->consecutive_skips = render ? 0 : ft->consecutive_skips + 1;
+    ppu_set_render_enabled(render);
 }

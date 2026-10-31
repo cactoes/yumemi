@@ -21,14 +21,27 @@
 
 #define WINDOW_NAME "yumemi - gba emulator"
 #define DISPLAY_SCALE 4
+#define GBA_FRAME_NS 16742706ull
 
 #include "typedef.h"
+
+typedef struct __frame_time {
+    u32 speed_percent;
+    u32 frameskip;
+    bool auto_frameskip;
+    u32 frame_counter;
+    u32 consecutive_skips;
+    u64 next_deadline_ns;
+} frame_time_t;
 
 void render_init(u32 width, u32 height);
 void render_present(u32* buffer);
 bool render_should_close();
 void render_close();
 
+void render_poll_events();
 void render_update_events();
+
+void render_handle_frame();
 
 #endif // RENDERER_H
