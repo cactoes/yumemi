@@ -89,6 +89,37 @@
 #define ARM_DM_MSR_IMM_MASK      0x0fb0f000u
 #define ARM_DM_MSR_IMM_VALUE     0x0320f000u
 
+#define THUMB_FMT_ADD_SUB_MASK            0xf800u
+#define THUMB_FMT_ADD_SUB_VALUE           0x1800u
+#define THUMB_FMT_ALU_MASK                0xfc00u
+#define THUMB_FMT_ALU_VALUE               0x4000u
+#define THUMB_FMT_HIGH_REGISTER_MASK      0xfc00u
+#define THUMB_FMT_HIGH_REGISTER_VALUE     0x4400u
+#define THUMB_FMT_LITERAL_LOAD_MASK       0xf800u
+#define THUMB_FMT_LITERAL_LOAD_VALUE      0x4800u
+#define THUMB_FMT_REGISTER_TRANSFER_MASK  0xf200u
+#define THUMB_FMT_REGISTER_TRANSFER_VALUE 0x5000u
+#define THUMB_FMT_SIGNED_TRANSFER_MASK    0xf200u
+#define THUMB_FMT_SIGNED_TRANSFER_VALUE   0x5200u
+#define THUMB_FMT_LOAD_ADDRESS_MASK       0xf000u
+#define THUMB_FMT_LOAD_ADDRESS_VALUE      0xa000u
+#define THUMB_FMT_ADJUST_SP_MASK          0xff00u
+#define THUMB_FMT_ADJUST_SP_VALUE         0xb000u
+#define THUMB_FMT_PUSH_POP_MASK           0xf600u
+#define THUMB_FMT_PUSH_POP_VALUE          0xb400u
+#define THUMB_FMT_BRANCH_MASK             0xf800u
+#define THUMB_FMT_BRANCH_VALUE            0xe000u
+#define THUMB_FMT_BL_PREFIX_MASK          0xf800u
+#define THUMB_FMT_BL_PREFIX_VALUE         0xf000u
+#define THUMB_FMT_BL_SUFFIX_MASK          0xf800u
+#define THUMB_FMT_BL_SUFFIX_VALUE         0xf800u
+
+#define THUMB_MEMORY_WORD               0
+#define THUMB_MEMORY_BYTE               1
+#define THUMB_MEMORY_HALFWORD           2
+#define THUMB_MEMORY_SIGNED_BYTE        3
+#define THUMB_MEMORY_SIGNED_HALFWORD    4
+
 #include "typedef.h"
 
 typedef struct __cpu {

@@ -240,6 +240,21 @@ u32 cpu_count_register_list(u32 list) {
 }
 
 static
+void cpu_branch_exchange(u32 target) {
+    cpu_t* cpu = get_cpu();
+
+    bool thumb = MASK_ANY_SET(target, 1u);
+
+    if (thumb)
+        MASK_SET(cpu->cpsr, PSR_T_BIT);
+    else
+        MASK_CLEAR(cpu->cpsr, PSR_T_BIT);
+
+    MASK_CLEAR(target, thumb ? 1u : 3u);
+    cpu_set_pc(target);
+}
+
+static
 u32 ror(u32 value, u32 amount) {
     amount &= 31;
 
@@ -247,6 +262,13 @@ u32 ror(u32 value, u32 amount) {
         return value;
 
     return (value >> amount) | (value << (32 - amount));
+}
+
+static
+bool cpu_swi(u32 comment) {
+    comment;
+    printf("swi not implemented\n");
+    return false;
 }
 
 void cpu_reset(bool skip_bios) {
@@ -667,18 +689,9 @@ bool arm_block_data_transfer(u32 instruction) {
 
 static
 bool arm_branch_exchange(u32 instruction) {
-    cpu_t* cpu = get_cpu();
     u32 rm = instruction & 0xfu;
     u32 target = cpu_read_reg(rm);
-    bool thumb = MASK_ANY_SET(target, 1u);
-
-    if (thumb)
-        MASK_SET(cpu->cpsr, PSR_T_BIT);
-    else
-        MASK_CLEAR(cpu->cpsr, PSR_T_BIT);
-
-    MASK_CLEAR(target, thumb ? 1u : 3u);
-    cpu_set_pc(target);
+    cpu_branch_exchange(target);
     return true;
 }
 
@@ -1060,8 +1073,755 @@ const arm_instruction_handler_t arm_handlers[8] = {
 };
 
 static
+i32 thumb_sign_extend(u32 value, u32 bits) {
+    u32 sign = 1u << (bits - 1u);
+    return (i32)(value & (sign - 1u)) - (i32)(value & sign);
+}
+
+static
+void thumb_update_nz_flags(u32 value) {
+    cpu_t* cpu = get_cpu();
+
+    MASK_CLEAR(cpu->cpsr, PSR_N | PSR_Z);
+
+    if (MASK_ANY_SET(value, 0x80000000u))
+        MASK_SET(cpu->cpsr, PSR_N);
+
+    if (value == 0)
+        MASK_SET(cpu->cpsr, PSR_Z);
+}
+
+static
+void thumb_update_nzc_flags(u32 value, bool carry) {
+    cpu_t* cpu = get_cpu();
+
+    thumb_update_nz_flags(value);
+
+    MASK_CLEAR(cpu->cpsr, PSR_C);
+
+    if (carry)
+        MASK_SET(cpu->cpsr, PSR_C);
+}
+
+static
+void thumb_commit_arithmetic(u32 rd, alu_add_result_t result, bool write_result) {
+    cpu_t* cpu = get_cpu();
+
+    if (write_result)
+        cpu->r[rd] = result.value;
+
+    thumb_update_nzc_flags(result.value, result.carry);
+
+    MASK_CLEAR(cpu->cpsr, PSR_V);
+
+    if (result.overflow)
+        MASK_SET(cpu->cpsr, PSR_V);
+}
+
+static
+void thumb_write_pc(u32 target) {
+    cpu_set_pc(target & ~1u);
+}
+
+static
+u32 thumb_load_halfword(u32 address) {
+    bool odd = MASK_ANY_SET(address, 1u);
+
+    u32 value = (u32)mbus_read16(address & ~1u, MBUS_DEFAULT);
+
+    return odd ? ror(value, 8u) : value;
+}
+
+static
+u32 thumb_load_signed_byte(u32 address) {
+    u32 value = (u32)mbus_read8(address, MBUS_DEFAULT);
+
+    if (MASK_ANY_SET(value, 0x80u))
+        MASK_SET(value, 0xffffff00u);
+
+    return value;
+}
+
+static
+u32 thumb_load_signed_halfword(u32 address) {
+    if (MASK_ANY_SET(address, 1u))
+        return thumb_load_signed_byte(address);
+
+    u32 value = (u32)mbus_read16(address, MBUS_DEFAULT);
+
+    if (MASK_ANY_SET(value, 0x8000u))
+        MASK_SET(value, 0xffff0000u);
+
+    return value;
+}
+
+static
+bool thumb_transfer_register(u32 rd, u32 address, bool load, u32 type) {
+    cpu_t* cpu = get_cpu();
+
+    if (load) {
+        u32 value = 0;
+
+        switch (type) {
+            case THUMB_MEMORY_WORD:
+                value = cpu_load_word_rotated(address);
+                break;
+            case THUMB_MEMORY_BYTE:
+                value = (u32)mbus_read8(address, MBUS_DEFAULT);
+                break;
+            case THUMB_MEMORY_HALFWORD:
+                value = thumb_load_halfword(address);
+                break;
+            case THUMB_MEMORY_SIGNED_BYTE:
+                value = thumb_load_signed_byte(address);
+                break;
+            case THUMB_MEMORY_SIGNED_HALFWORD:
+                value = thumb_load_signed_halfword(address);
+                break;
+            default:
+                return false;
+        }
+
+        cpu->r[rd] = value;
+        mbus_add_cycles(1);
+
+        return true;
+    }
+
+    u32 value = cpu->r[rd];
+
+    switch (type) {
+        case THUMB_MEMORY_WORD:
+            mbus_write32(address & ~3u, value, MBUS_DEFAULT);
+            break;
+        case THUMB_MEMORY_BYTE:
+            mbus_write8(address, (u8)value, MBUS_DEFAULT);
+            break;
+        case THUMB_MEMORY_HALFWORD:
+            mbus_write16(address & ~1u, (u16)value, MBUS_DEFAULT);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+static
+bool thumb_shift_immediate(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 type = (instruction >> 11) & 3u;
+    u32 amount = (instruction >> 6) & 0x1fu;
+    u32 rs = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    if (type == 3) {
+        printf("undefined thumb shift immediate instruction: 0x%04x\n", instruction);
+        return false;
+    }
+
+    bool carry_in = MASK_ANY_SET(cpu->cpsr, PSR_C);
+
+    alu_shift_result_t shifted = alu_barrel_shift(cpu->r[rs], type, amount, carry_in, false);
+
+    cpu->r[rd] = shifted.value;
+    thumb_update_nzc_flags(shifted.value, shifted.carry);
+
+    return true;
+}
+
+static
+bool thumb_add_subtract(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool immediate = MASK_ANY_SET(instruction, 1u << 10);
+    bool subtract = MASK_ANY_SET(instruction, 1u << 9);
+
+    u32 rd = instruction & 7u;
+    u32 rs = (instruction >> 3) & 7u;
+    u32 operand = (instruction >> 6) & 7u;
+
+    u32 b = immediate ? operand : cpu->r[operand];
+
+    alu_add_result_t result = alu_add_with_carry(cpu->r[rs], subtract ? ~b : b, subtract);
+
+    thumb_commit_arithmetic(rd, result, true);
+
+    return true;
+}
+
+static
+bool thumb_data_processing_immediate(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 opcode = (instruction >> 11) & 3u;
+    u32 rd = (instruction >> 8) & 7u;
+    u32 immediate = instruction & 0xffu;
+
+    if (opcode == 0) {
+        cpu->r[rd] = immediate;
+        thumb_update_nz_flags(immediate);
+        return true;
+    }
+
+    bool subtract = opcode != 2;
+
+    alu_add_result_t result = alu_add_with_carry(cpu->r[rd], subtract ? ~immediate : immediate, subtract);
+
+    thumb_commit_arithmetic(rd, result, opcode != 1);
+
+    return true;
+}
+
+static
+bool thumb_alu_register(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 opcode = (instruction >> 6) & 0xfu;
+    u32 rs = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    u32 a = cpu->r[rd];
+    u32 b = cpu->r[rs];
+
+    bool carry_in = MASK_ANY_SET(cpu->cpsr, PSR_C);
+
+    u32 value = 0;
+    bool arithmetic = false;
+    bool write_result = true;
+
+    alu_add_result_t added = {0};
+
+    switch (opcode) {
+        case 0x0:
+            value = a & b;
+            break;
+        case 0x1:
+            value = a ^ b;
+            break;
+        case 0x2:
+        case 0x3:
+        case 0x4:
+        case 0x7: {
+            u32 type = opcode == 0x7u ? 3u : opcode - 2u;
+
+            alu_shift_result_t shifted = alu_barrel_shift(
+                a,
+                type,
+                b & 0xffu,
+                carry_in,
+                true
+            );
+
+            cpu->r[rd] = shifted.value;
+            thumb_update_nzc_flags(shifted.value, shifted.carry);
+
+            mbus_add_cycles(1);
+
+            return true;
+        }
+
+        case 0x5:
+            added = alu_add_with_carry(a, b, carry_in);
+            arithmetic = true;
+            break;
+        case 0x6:
+            added = alu_add_with_carry(a, ~b, carry_in);
+            arithmetic = true;
+            break;
+        case 0x8:
+            value = a & b;
+            write_result = false;
+            break;
+        case 0x9:
+            added = alu_add_with_carry(0u, ~b, true);
+            arithmetic = true;
+            break;
+        case 0xa:
+            added = alu_add_with_carry(a, ~b, true);
+            arithmetic = true;
+            write_result = false;
+            break;
+        case 0xb:
+            added = alu_add_with_carry(a, b, false);
+            arithmetic = true;
+            write_result = false;
+            break;
+        case 0xc:
+            value = a | b;
+            break;
+        case 0xd:
+            value = a * b;
+            mbus_add_cycles(mul_internal_cycles(a));
+            break;
+        case 0xe:
+            value = a & ~b;
+            break;
+        case 0xf:
+            value = ~b;
+            break;
+        default:
+            printf("undefined thumb alu register instruction: 0x%04x\n", instruction);
+            return false;
+    }
+
+    if (arithmetic) {
+        thumb_commit_arithmetic(rd, added, write_result);
+    } else {
+        if (write_result)
+            cpu->r[rd] = value;
+
+        thumb_update_nz_flags(value);
+    }
+
+    return true;
+}
+
+static
+bool thumb_high_register(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 opcode = (instruction >> 8) & 3u;
+    u32 rd = (instruction & 7u) | ((instruction >> 4) & 8u);
+    u32 rs = (instruction >> 3) & 0xfu;
+
+    switch (opcode) {
+        case 0: {
+            u32 value = cpu_read_reg(rd) + cpu_read_reg(rs);
+
+            if (rd == 15)
+                thumb_write_pc(value);
+            else
+                cpu->r[rd] = value;
+
+            return true;
+        }
+        case 1: {
+            alu_add_result_t result = alu_add_with_carry(cpu_read_reg(rd), ~cpu_read_reg(rs), true);
+
+            thumb_commit_arithmetic(rd, result, false);
+
+            return true;
+        }
+        case 2: {
+            u32 value = cpu_read_reg(rs);
+
+            if (rd == 15)
+                thumb_write_pc(value);
+            else
+                cpu->r[rd] = value;
+
+            return true;
+        }
+        case 3:
+            if (MASK_ANY_SET(instruction, 0x0087u)) {
+                printf("undefined thumb high register instruction: 0x%04x\n", instruction);
+                return false;
+            }
+
+            cpu_branch_exchange(cpu_read_reg(rs));
+
+            return true;
+    }
+
+    printf("undefined thumb high register instruction: 0x%04x\n", instruction);
+    return false;
+}
+
+static
+bool thumb_load_literal(u16 instruction) {
+    u32 rd = (instruction >> 8) & 7u;
+
+    u32 base = cpu_read_reg(15);
+
+    u32 address = (base & ~3u) + ((instruction & 0xffu) << 2);
+
+    return thumb_transfer_register(rd, address, true, THUMB_MEMORY_WORD );
+}
+
+static
+bool thumb_load_store_register(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 ro = (instruction >> 6) & 7u;
+    u32 rb = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+    bool byte = MASK_ANY_SET(instruction, 1u << 10);
+
+    u32 address = cpu->r[rb] + cpu->r[ro];
+
+    return thumb_transfer_register(rd, address, load, byte ? THUMB_MEMORY_BYTE : THUMB_MEMORY_WORD);
+}
+
+static
+bool thumb_load_store_signed(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 opcode = (instruction >> 10) & 3u;
+    u32 ro = (instruction >> 6) & 7u;
+    u32 rb = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    u32 address = cpu->r[rb] + cpu->r[ro];
+
+    static const u32 types[4] = {
+        THUMB_MEMORY_HALFWORD,
+        THUMB_MEMORY_SIGNED_BYTE,
+        THUMB_MEMORY_HALFWORD,
+        THUMB_MEMORY_SIGNED_HALFWORD
+    };
+
+    return thumb_transfer_register(rd, address, opcode != 0, types[opcode]);
+}
+
+static
+bool thumb_load_store_immediate(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool byte = MASK_ANY_SET(instruction, 1u << 12);
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+
+    u32 offset = (instruction >> 6) & 0x1fu;
+    u32 rb = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    if (!byte)
+        offset <<= 2;
+
+    return thumb_transfer_register(rd, cpu->r[rb] + offset, load, byte ? THUMB_MEMORY_BYTE : THUMB_MEMORY_WORD);
+}
+
+static
+bool thumb_load_store_halfword_immediate(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+
+    u32 offset = ((instruction >> 6) & 0x1fu) << 1;
+    u32 rb = (instruction >> 3) & 7u;
+    u32 rd = instruction & 7u;
+
+    return thumb_transfer_register(rd, cpu->r[rb] + offset, load, THUMB_MEMORY_HALFWORD);
+}
+
+static
+bool thumb_load_store_sp_relative(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+    u32 rd = (instruction >> 8) & 7u;
+    u32 offset = (instruction & 0xffu) << 2;
+
+    return thumb_transfer_register(rd, cpu->sp + offset, load, THUMB_MEMORY_WORD);
+}
+
+static
+bool thumb_load_address(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool use_sp = MASK_ANY_SET(instruction, 1u << 11);
+
+    u32 rd = (instruction >> 8) & 7u;
+    u32 offset = (instruction & 0xffu) << 2;
+
+    u32 base = use_sp ? cpu->sp : cpu_read_reg(15);
+
+    if (!use_sp)
+        MASK_CLEAR(base, 3u);
+
+    cpu->r[rd] = base + offset;
+
+    return true;
+}
+
+static
+bool thumb_adjust_sp(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool subtract = MASK_ANY_SET(instruction, 1u << 7);
+    u32 offset = (instruction & 0x7fu) << 2;
+
+    cpu->sp = subtract ? cpu->sp - offset : cpu->sp + offset;
+
+    return true;
+}
+
+static
+bool thumb_push_pop(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+    bool extra = MASK_ANY_SET(instruction, 1u << 8);
+
+    u32 rlist = instruction & 0xffu;
+
+    if (extra)
+        MASK_SET(rlist, 1u << (load ? 15 : 14));
+
+    u32 base = cpu->sp;
+
+    if (rlist == 0u) {
+        u32 address = (load ? base : base - 0x40) & ~3u;
+
+        if (load) {
+            u32 target = mbus_read32(address, MBUS_DEFAULT);
+
+            cpu->sp = base + 0x40;
+
+            mbus_add_cycles(1);
+            thumb_write_pc(target);
+        } else {
+            mbus_write32(address, cpu_read_reg(15) + 2, MBUS_DEFAULT);
+            cpu->sp = base - 0x40;
+        }
+
+        return true;
+    }
+
+    u32 total = cpu_count_register_list(rlist) * 4;
+    u32 new_sp = load ? base + total : base - total;
+
+    u32 address = (load ? base : new_sp) & ~3u;
+
+    u32 pc_value = 0;
+
+    for (u32 reg = 0; reg < 16; reg++) {
+        if (!MASK_ANY_SET(rlist, 1u << reg))
+            continue;
+
+        if (load) {
+            u32 value = mbus_read32(address, MBUS_DEFAULT);
+
+            if (reg == 15)
+                pc_value = value;
+            else
+                cpu->r[reg] = value;
+        } else {
+            mbus_write32(address, cpu_read_reg(reg), MBUS_DEFAULT);
+        }
+
+        address += 4;
+    }
+
+    cpu->sp = new_sp;
+
+    if (load) {
+        mbus_add_cycles(1);
+
+        if (MASK_ANY_SET(rlist, 1u << 15))
+            thumb_write_pc(pc_value);
+    }
+
+    return true;
+}
+
+static
+bool thumb_load_store_multiple(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    bool load = MASK_ANY_SET(instruction, 1u << 11);
+
+    u32 rb = (instruction >> 8) & 7u;
+    u32 rlist = instruction & 0xffu;
+
+    u32 base = cpu->r[rb];
+    u32 address = base & ~3u;
+
+    if (rlist == 0u) {
+        if (load) {
+            u32 target = mbus_read32(address, MBUS_DEFAULT);
+
+            cpu->r[rb] = base + 0x40;
+
+            mbus_add_cycles(1);
+            thumb_write_pc(target);
+        } else {
+            mbus_write32(address, cpu_read_reg(15) + 2, MBUS_DEFAULT);
+
+            cpu->r[rb] = base + 0x40;
+        }
+
+        return true;
+    }
+
+    u32 new_base = base + cpu_count_register_list(rlist) * 4;
+
+    bool base_first = !MASK_ANY_SET(rlist, (1u << rb) - 1u);
+
+    for (u32 reg = 0; reg < 8; reg++) {
+        if (!MASK_ANY_SET(rlist, 1u << reg))
+            continue;
+
+        if (load) {
+            cpu->r[reg] = mbus_read32(address, MBUS_DEFAULT);
+        } else {
+            u32 value = cpu->r[reg];
+
+            if (reg == rb && !base_first)
+                value = new_base;
+
+            mbus_write32(address, value, MBUS_DEFAULT);
+        }
+
+        address += 4;
+    }
+
+    if (!load || !MASK_ANY_SET(rlist, 1u << rb))
+        cpu->r[rb] = new_base;
+
+    if (load)
+        mbus_add_cycles(1);
+
+    return true;
+}
+
+static
+bool thumb_branch_conditional(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 condition = (instruction >> 8) & 0xfu;
+
+    if (condition == 0xf)
+        return cpu_swi(instruction & 0xffu);
+
+    if (condition == 0xe) {
+        printf("undefined thumb branch conditional instruction: 0x%04x\n", instruction);
+        return false;
+    }
+
+    if (!cpu_check_instruction_cond(condition, cpu->cpsr))
+        return true;
+
+    i32 offset = thumb_sign_extend(instruction & 0xffu, 8u) * 2;
+
+    thumb_write_pc(cpu_read_reg(15) + (u32)offset);
+
+    return true;
+}
+
+static
+bool thumb_branch(u16 instruction) {
+    i32 offset = thumb_sign_extend(instruction & 0x7ffu, 11u) * 2;
+
+    thumb_write_pc(cpu_read_reg(15) + (u32)offset);
+
+    return true;
+}
+
+static
+bool thumb_branch_link_prefix(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    i32 offset = thumb_sign_extend(instruction & 0x7ffu, 11u) * 4096;
+
+    cpu->lr = cpu_read_reg(15) + (u32)offset;
+
+    return true;
+}
+
+static
+bool thumb_branch_link_suffix(u16 instruction) {
+    cpu_t* cpu = get_cpu();
+
+    u32 target = cpu->lr + ((instruction & 0x7ffu) << 1);
+
+    u32 return_address = cpu->pc;
+    MASK_SET(return_address, 1u);
+
+    cpu->lr = return_address;
+    thumb_write_pc(target);
+
+    return true;
+}
+
+static
+bool thumb_decode_shift_add_sub(u16 instruction) {
+    if (MASK_MATCHES(instruction, THUMB_FMT_ADD_SUB_MASK, THUMB_FMT_ADD_SUB_VALUE))
+        return thumb_add_subtract(instruction);
+
+    return thumb_shift_immediate(instruction);
+}
+
+static
+bool thumb_decode_alu_load_store(u16 instruction) {
+    if (MASK_MATCHES(instruction, THUMB_FMT_ALU_MASK, THUMB_FMT_ALU_VALUE))
+        return thumb_alu_register(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_HIGH_REGISTER_MASK, THUMB_FMT_HIGH_REGISTER_VALUE))
+        return thumb_high_register(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_LITERAL_LOAD_MASK, THUMB_FMT_LITERAL_LOAD_VALUE))
+        return thumb_load_literal(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_REGISTER_TRANSFER_MASK, THUMB_FMT_REGISTER_TRANSFER_VALUE))
+        return thumb_load_store_register(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_SIGNED_TRANSFER_MASK, THUMB_FMT_SIGNED_TRANSFER_VALUE))
+        return thumb_load_store_signed(instruction);
+
+    printf("undefined thumb decode alu load store instruction: 0x%04x\n", instruction);
+    return false;
+}
+
+static
+bool thumb_decode_halfword_sp_relative(u16 instruction) {
+    if (MASK_ANY_SET(instruction, 1u << 12))
+        return thumb_load_store_sp_relative(instruction);
+
+    return thumb_load_store_halfword_immediate(instruction);
+}
+
+static
+bool thumb_decode_address_stack(u16 instruction) {
+    if (MASK_MATCHES(instruction, THUMB_FMT_LOAD_ADDRESS_MASK, THUMB_FMT_LOAD_ADDRESS_VALUE))
+        return thumb_load_address(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_ADJUST_SP_MASK, THUMB_FMT_ADJUST_SP_VALUE))
+        return thumb_adjust_sp(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_PUSH_POP_MASK, THUMB_FMT_PUSH_POP_VALUE))
+        return thumb_push_pop(instruction);
+
+    printf("undefined thumb decode address stack instruction: 0x%04x\n", instruction);
+    return false;
+}
+
+static
+bool thumb_decode_multiple_conditional(u16 instruction) {
+    if (!MASK_ANY_SET(instruction, 1u << 12))
+        return thumb_load_store_multiple(instruction);
+
+    return thumb_branch_conditional(instruction);
+}
+
+static
+bool thumb_decode_branch_long(u16 instruction) {
+    if (MASK_MATCHES(instruction, THUMB_FMT_BRANCH_MASK, THUMB_FMT_BRANCH_VALUE))
+        return thumb_branch(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_BL_PREFIX_MASK, THUMB_FMT_BL_PREFIX_VALUE))
+        return thumb_branch_link_prefix(instruction);
+
+    if (MASK_MATCHES(instruction, THUMB_FMT_BL_SUFFIX_MASK, THUMB_FMT_BL_SUFFIX_VALUE))
+        return thumb_branch_link_suffix(instruction);
+
+    printf("undefined thumb decode branch long instruction: 0x%04x\n", instruction);
+    return false;
+}
+
+static
 const thumb_instruction_handler_t thumb_handlers[8] = {
-    0, 0, 0, 0, 0, 0, 0, 0
+    thumb_decode_shift_add_sub,
+    thumb_data_processing_immediate,
+    thumb_decode_alu_load_store,
+    thumb_load_store_immediate,
+    thumb_decode_halfword_sp_relative,
+    thumb_decode_address_stack,
+    thumb_decode_multiple_conditional,
+    thumb_decode_branch_long
 };
 
 static
