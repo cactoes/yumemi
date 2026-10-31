@@ -42,6 +42,13 @@
 #define MEMORY_ADDRESS_TO_REGION(x) ((u8)(x >> 24))
 #define MEMORY_REGION_TO_ADDRESS(x) ((u32)(x << 24))
 
+#define MEM_RESET_RAM_EWR       (1u << 0)
+#define MEM_RESET_RAM_IWR       (1u << 1)
+#define MEM_RESET_RAM_PALETTE   (1u << 2)
+#define MEM_RESET_RAM_VRAM      (1u << 3)
+#define MEM_RESET_RAM_OAM       (1u << 4)
+#define MEM_RESET_RAM_IO        ((1u << 5) | (1u << 6) | (1u << 7))
+
 #include "typedef.h"
 
 typedef enum {
@@ -108,5 +115,7 @@ void mbus_add_cycles_from_address(u32 address, u32 size);
 u32 mbus_get_total_cycle_count(bool reset_count);
 
 u8* mbus_get_region(u8 region);
+
+void mbus_reset_ram(u32 flags);
 
 #endif // MEMORY_BUS_H

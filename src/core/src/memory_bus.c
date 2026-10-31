@@ -6,6 +6,7 @@
 #include "memory_bus.h"
 #include "flash.h"
 #include "gba_io.h"
+#include "timer.h"
 
 static memory_bus_t global_memory_bus;
 
@@ -383,4 +384,86 @@ u32 mbus_get_total_cycle_count(bool reset_count) {
 
 u8* mbus_get_region(u8 region) {
     return memory_address_to_ram(MEMORY_REGION_TO_ADDRESS(region));
+}
+
+static
+void mbus_reset_io_display() {
+    io_write16(0x004, 0, IO_DEFAULT);
+
+    for (u32 offset = 0x008; offset < 0x020; offset += 2)
+        io_write16(offset, 0, IO_DEFAULT);
+
+    for (u32 base = 0x020; base <= 0x030; base += 0x010) {
+        io_write16(base, 0x0100, IO_DEFAULT);
+        io_write16(base + 2, 0, IO_DEFAULT);
+        io_write16(base + 4, 0, IO_DEFAULT);
+        io_write16(base + 6, 0x0100, IO_DEFAULT);
+        io_write32(base + 8, 0, IO_DEFAULT);
+        io_write32(base + 0xc, 0, IO_DEFAULT);
+    }
+
+    for (u32 offset = 0x040; offset <= 0x04a; offset += 2)
+        io_write16(offset, 0, IO_DEFAULT);
+
+    io_write16(0x04c, 0, IO_DEFAULT);
+    io_write16(0x050, 0, IO_DEFAULT);
+    io_write16(0x052, 0, IO_DEFAULT);
+    io_write16(0x054, 0, IO_DEFAULT);
+}
+
+static
+void mbus_reset_io_dma_timers() {
+    for (u32 channel = 0; channel < 4; channel++) {
+        u32 base = 0x0b0 + channel * 0x0c;
+        io_write16(base + 0x0a, 0, IO_DEFAULT);
+    }
+
+    for (u32 channel = 0; channel < 4; channel++) {
+        u32 base = 0x0b0 + channel * 0x0c;
+        io_write32(base, 0, IO_DEFAULT);
+        io_write32(base + 4, 0, IO_DEFAULT);
+        io_write16(base + 8, 0, IO_DEFAULT);
+    }
+
+    for (u32 timer = 0; timer < 4; timer++)
+        io_write16(0x102 + timer * 4, 0, IO_DEFAULT);
+
+    timer_reset();
+
+    for (u32 timer = 0; timer < 4; timer++)
+        io_write16(0x100 + timer * 4, 0, IO_DEFAULT);
+}
+
+void mbus_reset_ram(u32 flags) {
+    io_write16(0x000, 0x0080, IO_DEFAULT);
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_EWR))
+        memset(global_memory_bus.ram.ewr, 0, MEMORY_BUS_EWRAM_SIZE);
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_IWR))
+        memset(global_memory_bus.ram.iwr, 0, MEMORY_BUS_IWRAM_SIZE - 0x200);
+    
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_PALETTE))
+        memset(global_memory_bus.ram.palette, 0, MEMORY_BUS_PALETTE_SIZE);
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_VRAM))
+        memset(global_memory_bus.ram.video, 0, MEMORY_BUS_VRAM_SIZE);
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_OAM))
+        memset(global_memory_bus.ram.oam, 0, MEMORY_BUS_OAM_SIZE);
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_IO)) {
+        io_write16(0x208, 0, IO_DEFAULT);
+
+        mbus_reset_io_display();
+        mbus_reset_io_dma_timers();
+
+        io_write16(0x132, 0, IO_DEFAULT);
+        io_write16(0x200, 0, IO_DEFAULT);
+        io_write16(0x202, 0xffff, IO_DEFAULT);
+        io_write16(0x204, 0, IO_DEFAULT);
+    }
+
+    io_write16(0x114, 0x8000, IO_DEFAULT);
+    mbus_write8(0x04000120, 0x07, MBUS_DEFAULT);
 }
