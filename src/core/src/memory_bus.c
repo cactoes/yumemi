@@ -9,8 +9,8 @@
 #include "timer.h"
 
 static memory_bus_t global_memory_bus;
-
 static const u8 non_seq_waitstates[4] = { 4, 3, 2, 8 };
+static u8* region_base[256];
 
 static
 memory_bus_t* get_memory_bus() {
@@ -171,6 +171,14 @@ void memory_bus_reset(u8* rom, u64 size) {
 
     mbus->cycle_counter = 0;
     mbus->last_address = 0xffffffffu;
+
+    memset(region_base, 0, sizeof(region_base));
+    region_base[MEMORY_BUS_REGION_EWRAM] = mbus->ram.ewr;
+    region_base[MEMORY_BUS_REGION_IWRAM] = mbus->ram.iwr;
+    region_base[MEMORY_BUS_REGION_OAM] = mbus->ram.oam;
+    region_base[MEMORY_BUS_REGION_PALETTE] = mbus->ram.palette;
+    region_base[MEMORY_BUS_REGION_IO] = mbus->ram.io;
+    region_base[MEMORY_BUS_REGION_VRAM] = mbus->ram.video;
 }
 
 u32 mbus_read32(u32 address, u8 flags) {
@@ -383,7 +391,7 @@ u32 mbus_get_total_cycle_count(bool reset_count) {
 }
 
 u8* mbus_get_region(u8 region) {
-    return memory_address_to_ram(MEMORY_REGION_TO_ADDRESS(region));
+    return region_base[region];
 }
 
 static

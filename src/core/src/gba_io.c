@@ -8,16 +8,15 @@
 #include "ppu.h"
 
 static bool io_cpu_halted = false;
+static u8* io_base = 0;
 
 u16 io_read_raw16(u32 offset) {
-    u8* io = mbus_get_region(MEMORY_BUS_REGION_IO);
-    return (u16)(io[offset] | (io[offset + 1] << 8));
+    return (u16)(io_base[offset] | (io_base[offset + 1] << 8));
 }
 
 void io_write_raw16(u32 offset, u16 value) {
-    u8* io = mbus_get_region(MEMORY_BUS_REGION_IO);
-    io[offset] = value & 0xff;
-    io[offset + 1] = value >> 8;
+    io_base[offset] = value & 0xff;
+    io_base[offset + 1] = value >> 8;
 }
 
 static
@@ -60,7 +59,8 @@ bool io_irq_wake_pending() {
 }
 
 void io_reset() {
-    memset(mbus_get_region(MEMORY_BUS_REGION_IO), 0, MEMORY_BUS_IO_SIZE);
+    io_base = mbus_get_region(MEMORY_BUS_REGION_IO);
+    memset(io_base, 0, MEMORY_BUS_IO_SIZE);
 
     io_cpu_halted = false;
     dma_reset();
@@ -81,7 +81,7 @@ bool io_cpu_handle_irq(u32* cycles) {
     return true;
 }
 
-void io_cpu_halt(void) {
+void io_cpu_halt() {
     io_cpu_halted = true;
 }
 
@@ -96,7 +96,7 @@ u8 io_read8(u32 offset, u8 flags) {
         return (offset & 1) ? (u8)(value >> 8) : (u8)(value & 0xff);
     }
 
-    return mbus_get_region(MEMORY_BUS_REGION_IO)[offset];
+    return io_base[offset];
 }
 
 u16 io_read16(u32 offset, u8 flags) {
@@ -135,14 +135,12 @@ void io_write8(u32 offset, u8 value, u8 flags) {
         return;
     }
 
-    u8* io = mbus_get_region(MEMORY_BUS_REGION_IO);
-
     switch (offset) {
         case IO_DISPSTAT:
-            io[offset] = (io[offset] & 0x07) | (value & 0x38);
+            io_base[offset] = (io_base[offset] & 0x07) | (value & 0x38);
             return;
         case IO_DISPSTAT + 1:
-            io[offset] = value;
+            io_base[offset] = value;
             return;
         case IO_VCOUNT:
         case IO_VCOUNT + 1:
@@ -150,17 +148,17 @@ void io_write8(u32 offset, u8 value, u8 flags) {
         case IO_KEYINPUT + 1:
             return;
         case IO_IE:
-            io[offset] = value;
+            io_base[offset] = value;
             return;
         case IO_IE + 1:
-            io[offset] = value & 0x3f;
+            io_base[offset] = value & 0x3f;
             return;
         case IO_IF:
         case IO_IF + 1:
-            io[offset] &= (u8)~value;
+            io_base[offset] &= (u8)~value;
             return;
         case IO_IME:
-            io[offset] = value & 1;
+            io_base[offset] = value & 1;
             return;
         case IO_IME + 1:
         case IO_IME + 2:
@@ -175,11 +173,11 @@ void io_write8(u32 offset, u8 value, u8 flags) {
                 u32 control_offset = IO_DMA_BASE + channel * IO_DMA_STRIDE + 10;
                 u16 old_control = io_read_raw16(control_offset);
 
-                io[offset] = value;
+                io_base[offset] = value;
 
                 dma_on_control_write(channel, old_control, io_read_raw16(control_offset));
             } else {
-                io[offset] = value;
+                io_base[offset] = value;
 
                 if ((offset >= 0x28 && offset < 0x30) || (offset >= 0x38 && offset < 0x40))
                     ppu_on_io_write(offset);
