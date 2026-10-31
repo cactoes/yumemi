@@ -62,8 +62,20 @@
 #define SWI_CPU_SET                 0x0b
 #define SWI_CPU_FAST_SET            0x0c
 #define SWI_OBJ_AFFINE_SET          0x0f
-#define SWI_LZ77_UNCOMPRESS_WRAM    0x11
-#define SWI_LZ77_UNCOMPRESS_VRAM    0x12
+#define SWI_LZ77_WRAM               0x11
+#define SWI_LZ77_VRAM               0x12
+
+#define BIOS_HLE_IRQ_FLAGS_ADDRESS  0x03007ff8u
+#define BIOS_HLE_RESET_FLAG_ADDRESS 0x03007ffau
+#define BIOS_HLE_RESET_RAM_START    0x03007e00u
+#define BIOS_HLE_RESET_RAM_SIZE     0x00000200u
+#define BIOS_HLE_IRQ_STACK          0x03007fa0u
+#define BIOS_HLE_SVC_STACK          0x03007fe0u
+#define BIOS_HLE_USER_STACK         0x03007f00u
+#define BIOS_HLE_RAM_ENTRY          0x02000000u
+#define BIOS_HLE_ROM_ENTRY          0x08000000u
+#define BIOS_SWI_VECTOR             0x00000008u
+#define BIOS_SWI_IRQ_DISABLE        (1u << 7)
 
 #define ALU_SHIFT_LSL 0
 #define ALU_SHIFT_LSR 1
@@ -120,6 +132,9 @@
 #define THUMB_MEMORY_SIGNED_BYTE        3
 #define THUMB_MEMORY_SIGNED_HALFWORD    4
 
+#define LZ77_VRAM true
+#define LZ77_WRAM false
+
 #include "typedef.h"
 
 typedef struct __cpu {
@@ -144,6 +159,9 @@ typedef struct __cpu {
     u32 fiq_r8_r12[5];
 
     bool skip_bios_mode;
+    bool bios_hle_wait_active;
+    u16 bios_hle_wait_mask;
+
 } cpu_t;
 
 typedef struct __alu_shift_result {

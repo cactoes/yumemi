@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "cpu.h"
 #include "memory_bus.h"
@@ -265,10 +266,303 @@ u32 ror(u32 value, u32 amount) {
 }
 
 static
-bool cpu_swi(u32 comment) {
-    comment;
-    printf("unimplemented SWI: 0x%02X\n", comment);
-    return false;
+void bios_hle_set_mode(u32 mode) {
+    cpu_t* cpu = get_cpu();
+    cpu_switch_mode(mode);
+    MASK_CLEAR(cpu->cpsr, PSR_MODE_MASK);
+    MASK_SET(cpu->cpsr, mode);
+}
+
+static
+bool bios_hle_soft_reset() {
+    printf("[BIOS HLE] soft reset triggerd\n");
+
+    cpu_t* cpu = get_cpu();
+    u8 boot_from_ram = mbus_read8(BIOS_HLE_RESET_FLAG_ADDRESS, MBUS_DEFAULT);
+
+    cpu->bios_hle_wait_active = false;
+    cpu->bios_hle_wait_mask = 0;
+
+    bios_hle_set_mode(PSR_MODE_IRQ);
+    cpu->sp = BIOS_HLE_IRQ_STACK;
+    cpu->lr = 0;
+    cpu->spsr[cpu_mode_to_bank(PSR_MODE_IRQ)] = 0;
+
+    bios_hle_set_mode(PSR_MODE_SUPERVISOR);
+    cpu->sp = BIOS_HLE_SVC_STACK;
+    cpu->lr = 0;
+    cpu->spsr[cpu_mode_to_bank(PSR_MODE_SUPERVISOR)] = 0;
+
+    bios_hle_set_mode(PSR_MODE_SYSTEM);
+    cpu->sp = BIOS_HLE_USER_STACK;
+    cpu->lr = 0;
+
+    for (u32 reg = 0; reg < 13; reg++)
+        cpu->r[reg] = 0;
+
+    for (u32 offset = 0; offset < BIOS_HLE_RESET_RAM_SIZE; offset++)
+        mbus_write8(BIOS_HLE_RESET_RAM_START + offset, 0, MBUS_DEFAULT);
+
+    cpu->cpsr = PSR_MODE_SYSTEM;
+    cpu_set_pc(boot_from_ram ? BIOS_HLE_RAM_ENTRY : BIOS_HLE_ROM_ENTRY);
+    return true;
+}
+
+static
+bool bios_hle_register_ram_reset() {
+    mbus_reset_ram(get_cpu()->r[0] & 0xffu);
+    return true;
+}
+
+static
+bool bios_hle_halt() {
+    io_cpu_halt();
+    return true;
+}
+
+static
+bool bios_hle_intr_wait(u16 mask, bool discard) {
+    cpu_t* cpu = get_cpu();
+    u16 flags = mbus_read16(BIOS_HLE_IRQ_FLAGS_ADDRESS, MBUS_DEFAULT);
+
+    if (!cpu->bios_hle_wait_active) {
+        cpu->bios_hle_wait_mask = mask;
+        cpu->bios_hle_wait_active = true;
+        if (discard) {
+            MASK_CLEAR(flags, mask);
+            mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MBUS_DEFAULT);
+        }
+    }
+
+    mask = cpu->bios_hle_wait_mask;
+    io_write16(IO_IME, 1, IO_DEFAULT);
+
+    if (MASK_ANY_SET(flags, mask)) {
+        MASK_CLEAR(flags, mask);
+        mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MBUS_DEFAULT);
+        cpu->bios_hle_wait_mask = 0;
+        cpu->bios_hle_wait_active = false;
+        return true;
+    }
+
+    cpu->pc -= is_thumb_mode() ? 2 : 4;
+    io_cpu_halt();
+    return true;
+}
+
+static
+void bios_hle_copy_memory(u32 src, u32 dst, u32 count, bool word, bool fill) {
+    if (count == 0u)
+        return;
+
+    if (word) {
+        MASK_CLEAR(src, 3u);
+        MASK_CLEAR(dst, 3u);
+        u32 fill_value = fill ? mbus_read32(src, MBUS_DEFAULT) : 0u;
+        for (u32 index = 0u; index < count; index++) {
+            u32 value = fill ? fill_value : mbus_read32(src, MBUS_DEFAULT);
+            mbus_write32(dst, value, MBUS_DEFAULT);
+            src += 4u;
+            dst += 4u;
+        }
+    } else {
+        MASK_CLEAR(src, 1u);
+        MASK_CLEAR(dst, 1u);
+        u16 fill_value = fill ? mbus_read16(src, MBUS_DEFAULT) : 0u;
+        for (u32 index = 0u; index < count; index++) {
+            u16 value = fill ? fill_value : mbus_read16(src, MBUS_DEFAULT);
+            mbus_write16(dst, value, MBUS_DEFAULT);
+            src += 2u;
+            dst += 2u;
+        }
+    }
+}
+
+static
+bool bios_hle_cpu_set(bool fast) {
+    cpu_t* cpu = get_cpu();
+    u32 control = cpu->r[2];
+    u32 count = control & 0x001fffffu;
+    bool fill = MASK_ANY_SET(control, 1u << 24);
+    bool word = fast || MASK_ANY_SET(control, 1u << 26);
+
+    if (fast) {
+        count += 7u;
+        MASK_CLEAR(count, 7u);
+    }
+
+    bios_hle_copy_memory(cpu->r[0], cpu->r[1], count, word, fill);
+    return true;
+}
+
+static
+int32_t bios_hle_sin_approx(u32 angle) {
+    const double tau = 6.283185307179586;
+    double radians = (double)(angle & 0xffu) * tau / 256.0;
+    return (int32_t)(sin(radians) * 16384.0);
+}
+
+static
+int32_t bios_hle_read_s16(u32 address) {
+    u32 value = mbus_read16(address, MBUS_DEFAULT);
+    return (int32_t)(value & 0x7fffu) - (int32_t)(value & 0x8000u);
+}
+
+static
+int32_t bios_hle_fixed14_product(int32_t scale, int32_t trig) {
+    int64_t product = (int64_t)scale * trig;
+    return product >= 0 ? (int32_t)(product / 16384) : (int32_t)(-((-product + 16383) / 16384));
+}
+
+static
+bool bios_hle_obj_affine_set() {
+    cpu_t* cpu = get_cpu();
+    u32 src = cpu->r[0];
+    u32 dst = cpu->r[1];
+    u32 count = cpu->r[2];
+    u32 stride = cpu->r[3];
+
+    for (u32 index = 0; index < count; index++) {
+        int32_t sx = bios_hle_read_s16(src);
+        int32_t sy = bios_hle_read_s16(src + 2u);
+        u32 angle = mbus_read16(src + 4u, MBUS_DEFAULT) >> 8;
+        src += 8;
+
+        int32_t sine = bios_hle_sin_approx(angle);
+        int32_t cosine = bios_hle_sin_approx(angle + 64);
+        int32_t matrix[4] = {
+            bios_hle_fixed14_product(sx, cosine),
+            bios_hle_fixed14_product(-sx, sine),
+            bios_hle_fixed14_product(sy, sine),
+            bios_hle_fixed14_product(sy, cosine)
+        };
+
+        for (u32 component = 0; component < 4; component++) {
+            mbus_write16(dst, (u16)matrix[component], MBUS_DEFAULT);
+            dst += stride;
+        }
+    }
+
+    return true;
+}
+
+static
+bool bios_hle_lz77_decode(u32 src, u8* out, u32 size) {
+    u32 written = 0u;
+    while (written < size) {
+        u8 flags = mbus_read8(src++, MBUS_DEFAULT);
+        for (u32 bit = 0; bit < 8 && written < size; bit++) {
+            bool compressed = MASK_ANY_SET(flags, 0x80u);
+            flags = (u8)(flags << 1);
+
+            if (!compressed) {
+                out[written++] = mbus_read8(src++, MBUS_DEFAULT);
+                continue;
+            }
+
+            u8 first = mbus_read8(src++, MBUS_DEFAULT);
+            u8 second = mbus_read8(src++, MBUS_DEFAULT);
+            u32 length = (first >> 4) + 3;
+            u32 distance = (((u32)first & 0x0fu) << 8) | second;
+            distance += 1;
+
+            if (distance > written)
+                return false;
+
+            for (u32 index = 0; index < length && written < size; index++) {
+                out[written] = out[written - distance];
+                written++;
+            }
+        }
+    }
+    return true;
+}
+
+static
+void bios_hle_write_decompressed(u32 dst, const u8* data, u32 size, bool halfword) {
+    if (!halfword) {
+        for (u32 index = 0u; index < size; index++)
+            mbus_write8(dst + index, data[index], MBUS_DEFAULT);
+
+        return;
+    }
+
+    MASK_CLEAR(dst, 1u);
+    for (u32 index = 0; index < size; index += 2) {
+        u16 value = data[index];
+        if (index + 1u < size)
+            value |= (u16)((u16)data[index + 1u] << 8);
+
+        mbus_write16(dst + index, value, MBUS_DEFAULT);
+    }
+}
+
+static
+bool bios_hle_lz77_uncompress(bool vram) {
+    cpu_t* cpu = get_cpu();
+    u32 src = cpu->r[0];
+    u32 dst = cpu->r[1];
+    u32 header = mbus_read32(src, MBUS_DEFAULT);
+    u32 size = header >> 8;
+
+    if ((header & 0xf0u) != 0x10u)
+        return false;
+
+    if (size == 0u)
+        return true;
+
+    u8* output = malloc(size);
+    if (!output)
+        return false;
+
+    bool success = bios_hle_lz77_decode(src + 4u, output, size);
+    if (success)
+        bios_hle_write_decompressed(dst, output, size, vram);
+
+    free(output);
+    return success;
+}
+
+static
+bool bios_hle_dispatch(u32 service) {
+    cpu_t* cpu = get_cpu();
+    switch (service) {
+        case SWI_SOFT_RESET:
+            return bios_hle_soft_reset();
+        case SWI_REGISTER_RAM_RESET:
+            return bios_hle_register_ram_reset();
+        case SWI_HALT:
+            return bios_hle_halt();
+        case SWI_INTR_WAIT:
+            return bios_hle_intr_wait((u16)cpu->r[1], cpu->r[0] != 0u);
+        case SWI_VBLANK_INTR_WAIT:
+            return bios_hle_intr_wait(1, true);
+        case SWI_CPU_SET:
+            return bios_hle_cpu_set(false);
+        case SWI_CPU_FAST_SET:
+            return bios_hle_cpu_set(true);
+        case SWI_OBJ_AFFINE_SET:
+            return bios_hle_obj_affine_set();
+        case SWI_LZ77_WRAM:
+            return bios_hle_lz77_uncompress(LZ77_WRAM);
+        case SWI_LZ77_VRAM:
+            return bios_hle_lz77_uncompress(LZ77_VRAM);
+        default:
+            printf("unimplemented BIOS HLE service: 0x%02x\n", (unsigned)service);
+            return false;
+    }
+}
+
+static
+bool cpu_swi(u32 service) {
+    cpu_t* cpu = get_cpu();
+    if (!cpu->skip_bios_mode) {
+        printf("unimplemented SWI (bios): 0x%02X\n", service);
+        return false;
+    }
+
+    mbus_add_cycles(3);
+    return bios_hle_dispatch(service);
 }
 
 void cpu_reset(bool skip_bios) {
@@ -1062,6 +1356,15 @@ bool arm_branch(u32 instruction) {
 }
 
 static
+bool arm_decode_swi_coprocessor(u32 instruction) {
+    if (MASK_MATCHES(instruction, 0x0f000000u, 0x0f000000u))
+        return cpu_swi((instruction >> 16) & 0xffu);
+
+    printf("unsupported arm coprocessor instruction: 0x%08x\n", instruction);
+    return false;
+}
+
+static
 const arm_instruction_handler_t arm_handlers[8] = {
     arm_decode_data_misc,
     arm_data_processing,
@@ -1069,7 +1372,8 @@ const arm_instruction_handler_t arm_handlers[8] = {
     arm_single_data_transfer,
     arm_block_data_transfer,
     arm_branch,
-    0, 0
+    0,
+    arm_decode_swi_coprocessor
 };
 
 static

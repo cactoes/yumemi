@@ -29,6 +29,7 @@ int main() {
     io_reset();
     flash_reset();
     timer_reset();
+    ppu_reset();
     cpu_reset(true);
 
     while (true) {
