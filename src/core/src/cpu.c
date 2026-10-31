@@ -267,7 +267,7 @@ u32 ror(u32 value, u32 amount) {
 static
 bool cpu_swi(u32 comment) {
     comment;
-    printf("swi not implemented\n");
+    printf("unimplemented SWI: 0x%02X\n", comment);
     return false;
 }
 
