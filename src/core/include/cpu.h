@@ -65,6 +65,30 @@
 #define SWI_LZ77_UNCOMPRESS_WRAM    0x11
 #define SWI_LZ77_UNCOMPRESS_VRAM    0x12
 
+#define ALU_SHIFT_LSL 0
+#define ALU_SHIFT_LSR 1
+#define ALU_SHIFT_ASR 2
+#define ALU_SHIFT_ROR 3
+
+#define ARM_DM_BX_MASK           0x0ffffff0u
+#define ARM_DM_BX_VALUE          0x012fff10u
+#define ARM_DM_MUL_MASK          0x0fc000f0u
+#define ARM_DM_MUL_VALUE         0x00000090u
+#define ARM_DM_MULL_MASK         0x0f8000f0u
+#define ARM_DM_MULL_VALUE        0x00800090u
+#define ARM_DM_SWP_MASK          0x0fb00ff0u
+#define ARM_DM_SWP_VALUE         0x01000090u
+#define ARM_DM_HALF_REG_MASK     0x0E400f90u
+#define ARM_DM_HALF_REG_VALUE    0x00000090u
+#define ARM_DM_HALF_IMM_MASK     0x0E400090u
+#define ARM_DM_HALF_IMM_VALUE    0x00400090u
+#define ARM_DM_MRS_MASK          0x0fbf0fffu
+#define ARM_DM_MRS_VALUE         0x010f0000u
+#define ARM_DM_MSR_REG_MASK      0x0fb0fff0u
+#define ARM_DM_MSR_REG_VALUE     0x0120f000u
+#define ARM_DM_MSR_IMM_MASK      0x0fb0f000u
+#define ARM_DM_MSR_IMM_VALUE     0x0320f000u
+
 #include "typedef.h"
 
 typedef struct __cpu {
@@ -90,6 +114,17 @@ typedef struct __cpu {
 
     bool skip_bios_mode;
 } cpu_t;
+
+typedef struct __alu_shift_result {
+    u32 value;
+    bool carry;
+} alu_shift_result_t;
+
+typedef struct __alu_add_result {
+    u32 value;
+    bool carry;
+    bool overflow;
+} alu_add_result_t;
 
 typedef bool(*arm_instruction_handler_t)(u32 instruction);
 typedef bool(*thumb_instruction_handler_t)(u16 instruction);
