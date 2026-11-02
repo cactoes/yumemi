@@ -44,4 +44,9 @@ void render_update_events();
 
 void render_handle_frame();
 
+void render_set_close(bool state);
+
+void render_set_frame_skip(u32 value);
+void render_set_speed(u32 value);
+
 #endif // RENDERER_H

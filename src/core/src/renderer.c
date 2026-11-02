@@ -1,8 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOGDI
-#define NOUSER
-#include <windows.h>
-#include <timeapi.h>
 #include <raylib.h>
 #undef bool
 #include <stdio.h>
@@ -10,53 +5,18 @@
 #include "gba_io.h"
 #include "ppu.h"
 #include "flash.h"
-
-static
-u64 time_now_ns() {
-    static LARGE_INTEGER freq;
-    LARGE_INTEGER counter;
-
-    if (freq.QuadPart == 0)
-        QueryPerformanceFrequency(&freq);
-
-    QueryPerformanceCounter(&counter);
-
-    u64 secs = (u64)(counter.QuadPart / freq.QuadPart);
-    u64 rem  = (u64)(counter.QuadPart % freq.QuadPart);
-    return secs * 1000000000ull + rem * 1000000000ull / (u64)freq.QuadPart;
-}
-
-static
-void sleep_until_ns(u64 deadline) {
-    static bool timer_init = false;
-    if (!timer_init) {
-        timeBeginPeriod(1);
-        timer_init = true;
-    }
-
-    const u64 spin_margin = 1500000ull;
-
-    u64 now = time_now_ns();
-    if (now >= deadline)
-        return;
-
-    if (deadline - now > spin_margin) {
-        u64 sleep_ms = (deadline - now - spin_margin) / 1000000ull;
-        if (sleep_ms > 0)
-            Sleep((DWORD)sleep_ms);
-    }
-
-    while (time_now_ns() < deadline)
-        YieldProcessor();
-}
+#include "wtime.h"
+#include "wwindow.h"
 
 static Texture2D texture;
 static u32 global_width, global_height;
 static frame_time_t frame_time;
+static bool should_close;
 
 void render_init(u32 width, u32 height) {
     global_width = width;
     global_height = height;
+    should_close = false;
 
     frame_time.speed_percent = 100;
     frame_time.auto_frameskip = true;
@@ -75,6 +35,8 @@ void render_init(u32 width, u32 height) {
 
     texture = LoadTextureFromImage(image);
     SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+
+    install_window_menu();
 }
 
 void render_present(u32* buffer) {
@@ -94,7 +56,7 @@ void render_present(u32* buffer) {
 }
 
 bool render_should_close() {
-    return WindowShouldClose();
+    return WindowShouldClose() || should_close;
 }
 
 void render_close() {
@@ -184,4 +146,22 @@ void render_handle_frame() {
 
     ft->consecutive_skips = render ? 0 : ft->consecutive_skips + 1;
     ppu_set_render_enabled(render);
+}
+
+void render_set_close(bool state) {
+    should_close = state;
+}
+
+void render_set_frame_skip(u32 value) {
+    if (value == 0) {
+        frame_time.auto_frameskip = true;
+        frame_time.frameskip = 1;
+    } else {
+        frame_time.auto_frameskip = false;
+        frame_time.frameskip = value;
+    }
+}
+
+void render_set_speed(u32 value) {
+    frame_time.speed_percent = value;
 }
