@@ -12,5 +12,6 @@
 
 u64 time_now_ns();
 void sleep_until_ns(u64 deadline);
+void sleep(u32 ms);
 
 #endif // WTIME_H

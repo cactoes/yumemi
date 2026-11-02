@@ -12,6 +12,7 @@ static Texture2D texture;
 static u32 global_width, global_height;
 static frame_time_t frame_time;
 static bool should_close;
+static Font font;
 
 void render_init(u32 width, u32 height) {
     global_width = width;
@@ -35,6 +36,9 @@ void render_init(u32 width, u32 height) {
 
     texture = LoadTextureFromImage(image);
     SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+
+    font = LoadFontEx("C:/Windows/Fonts/segoeui.ttf", 32, NULL, 0);
+    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
 
     install_window_menu();
 }
@@ -61,6 +65,7 @@ bool render_should_close() {
 
 void render_close() {
     UnloadTexture(texture);
+    UnloadFont(font);
     CloseWindow();
 }
 
@@ -164,4 +169,24 @@ void render_set_frame_skip(u32 value) {
 
 void render_set_speed(u32 value) {
     frame_time.speed_percent = value;
+}
+
+void render_draw_intro() {
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    const char* text = "Please insert ROM";
+    float fontSize = 32.0f;
+    float spacing = 1.0f;
+
+    Vector2 size = MeasureTextEx(font, text, fontSize, spacing);
+
+    Vector2 pos = {
+        (GetScreenWidth()  - size.x) / 2.0f,
+        (GetScreenHeight() - size.y) / 2.0f
+    };
+
+    DrawTextEx(font, text, pos, fontSize, spacing, RAYWHITE);
+
+    EndDrawing();
 }

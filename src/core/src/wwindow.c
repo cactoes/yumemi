@@ -24,6 +24,9 @@
 static WNDPROC global_old_wnd_proc;
 static HMENU global_frame_skip_menu;
 static HMENU global_speed_menu;
+static HMENU global_file_menu;
+
+extern char* rom_path;
 
 static
 void open_rom_file_picker() {
@@ -45,8 +48,18 @@ void open_rom_file_picker() {
             if (SUCCEEDED(IFileOpenDialog_GetResult(dialog, &item))) {
                 PWSTR path = NULL;
                 if (SUCCEEDED(IShellItem_GetDisplayName(item, SIGDN_FILESYSPATH, &path))) {
-                    wprintf(L"Selected ROM: %ls\n", path);
-                    // load_rom(path);
+                    int len = WideCharToMultiByte(CP_UTF8, 0, path, -1, NULL, 0, NULL, NULL);
+                    if (len > 0) {
+                        char* cpath = (char*)malloc(len);
+                        if (cpath) {
+                            WideCharToMultiByte(CP_UTF8, 0, path, -1, cpath, len, NULL, NULL);
+                            rom_path = cpath;
+
+                            EnableMenuItem(global_file_menu, MENU_IMPORT_ROM, MF_BYCOMMAND | MF_GRAYED);
+                            DrawMenuBar((HWND)GetWindowHandle());
+                        }
+                    }
+
                     CoTaskMemFree(path);
                 }
                 IShellItem_Release(item);
@@ -130,13 +143,13 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 void install_window_menu() {
     HWND hwnd = (HWND)GetWindowHandle();
     HMENU menu = CreateMenu();
-    HMENU file_menu = CreatePopupMenu();
+    global_file_menu = CreatePopupMenu();
 
-    AppendMenuA(file_menu, MF_STRING, MENU_IMPORT_ROM, "Import ROM");
-    AppendMenuA(file_menu, MF_SEPARATOR, 0, NULL);
-    AppendMenuA(file_menu, MF_STRING, MENU_EXIT, "Exit");
+    AppendMenuA(global_file_menu, MF_STRING, MENU_IMPORT_ROM, "Import ROM");
+    AppendMenuA(global_file_menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuA(global_file_menu, MF_STRING, MENU_EXIT, "Exit");
 
-    AppendMenuA(menu, MF_POPUP, (UINT_PTR)file_menu, "File");
+    AppendMenuA(menu, MF_POPUP, (UINT_PTR)global_file_menu, "File");
 
     HMENU emulator_menu = CreatePopupMenu();
     global_frame_skip_menu = CreatePopupMenu();

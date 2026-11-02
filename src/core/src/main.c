@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "rom.h"
 #include "cpu.h"
@@ -9,15 +10,29 @@
 #include "dma.h"
 #include "ppu.h"
 #include "renderer.h"
+#include "wtime.h"
 
-#define ROM_FILE_PATH "../../roms/Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
+char* rom_path = 0;
 
 int main() {
+    render_init(PPU_WIDTH, PPU_HEIGHT);
+
+    while (rom_path == 0) {
+        render_poll_events();
+
+        if (render_should_close())
+            return 0;
+
+        render_draw_intro();
+        sleep(10);
+    }
+
     u8* rom_data = 0;
     u64 rom_size = 0;
-    u32 rom_load_result = load_rom_from_path(ROM_FILE_PATH, &rom_data, &rom_size);
+    u32 rom_load_result = load_rom_from_path(rom_path, &rom_data, &rom_size);
     if (rom_load_result != 0) {
-        printf("failed to load rom: %d\n", rom_load_result);
+        printf("failed to load rom: %d (%s)\n", rom_load_result, rom_path);
+        free(rom_path);
         return 1;
     }
 
@@ -28,12 +43,11 @@ int main() {
     memory_bus_reset(rom_data, rom_size);
     dma_reset();
     io_reset();
-    flash_reset(ROM_FILE_PATH);
+    flash_reset(rom_path);
     timer_reset();
     ppu_reset();
     cpu_reset(true);
 
-    render_init(PPU_WIDTH, PPU_HEIGHT);
     render_update_events();
 
     while (!render_should_close()) {
@@ -61,6 +75,7 @@ int main() {
     }
 
     render_close();
+    free(rom_path);
     // free(rom_data)
 
     return 0;

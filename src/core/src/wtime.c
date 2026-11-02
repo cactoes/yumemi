@@ -42,3 +42,7 @@ void sleep_until_ns(u64 deadline) {
     while (time_now_ns() < deadline)
         YieldProcessor();
 }
+
+void sleep(u32 ms) {
+    Sleep(ms);
+}
