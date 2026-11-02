@@ -99,6 +99,40 @@ void menu_handle_speed(u32 value) {
 }
 
 static
+void show_help_menu() {
+    MessageBoxA(0,
+        "Enter - Start\n"
+        "Backspace - Select\n"
+        "Arrow keys - D-Pad\n"
+        "Z - A\n"
+        "X - B\n"
+        "Q - L\n"
+        "W - R\n",
+        "Keybinds",
+        MB_OK | MB_ICONINFORMATION
+    );
+}
+
+static
+void show_info_menu() {
+    MessageBoxA((HWND)GetWindowHandle(),
+        "Yumemi\n"
+        "Game Boy Advance emulator\n"
+        "\n"
+        "Version: 1\n"
+        "Built: " __DATE__ "\n"
+        "Graphics: raylib " RAYLIB_VERSION "\n"
+        "\n"
+        "Author: Cactoes\n"
+        "github.com/cactoes/yumemi\n"
+        "\n"
+        "No ROMs or BIOS files are included.",
+        "About Yumemi",
+        MB_OK | MB_ICONINFORMATION
+    );
+}
+
+static
 LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_COMMAND: {
@@ -130,6 +164,12 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     menu_handle_speed(LOWORD(wParam));
                     break;
                 }
+                case MENU_HELP_KEYBINDS:
+                    show_help_menu();
+                    break;
+                case MENU_ABOUT_INFO:
+                    show_info_menu();
+                    break;
             }
 
             return 0;
@@ -176,8 +216,15 @@ void install_window_menu() {
 
     AppendMenuA(emulator_menu, MF_POPUP, (UINT_PTR)global_frame_skip_menu, "Frame Skip");
     AppendMenuA(emulator_menu, MF_POPUP, (UINT_PTR)global_speed_menu, "Speed");
-
     AppendMenuA(menu, MF_POPUP, (UINT_PTR)emulator_menu, "Emulator");
+
+    HMENU help_menu = CreatePopupMenu();
+    AppendMenuA(help_menu, MF_STRING, MENU_HELP_KEYBINDS, "Keybinds");
+    AppendMenuA(menu, MF_POPUP, (UINT_PTR)help_menu, "Help");
+
+    HMENU about_menu = CreatePopupMenu();
+    AppendMenuA(about_menu, MF_STRING, MENU_ABOUT_INFO, "Info");
+    AppendMenuA(menu, MF_POPUP, (UINT_PTR)about_menu, "About");
 
     SetMenu(hwnd, menu);
     DrawMenuBar(hwnd);
