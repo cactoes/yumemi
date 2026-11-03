@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <raylib.h>
+#undef bool
 
 #include "rom.h"
 #include "cpu.h"
@@ -17,15 +19,16 @@ char* rom_path = 0;
 int main() {
     render_init(PPU_WIDTH, PPU_HEIGHT);
 
-    while (rom_path == 0) {
-        render_poll_events();
+    SetTargetFPS(60);
 
-        if (render_should_close())
+    while (rom_path == 0) {
+        if (WindowShouldClose())
             return 0;
 
         render_draw_intro();
-        sleep(10);
     }
+
+    SetTargetFPS(0);
 
     u8* rom_data = 0;
     u64 rom_size = 0;

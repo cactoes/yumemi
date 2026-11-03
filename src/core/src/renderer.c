@@ -1,6 +1,7 @@
 #include <raylib.h>
 #undef bool
 #include <stdio.h>
+#include <math.h>
 #include "renderer.h"
 #include "gba_io.h"
 #include "ppu.h"
@@ -14,6 +15,23 @@ static frame_time_t frame_time;
 static bool should_close;
 static Font font;
 
+static
+Font load_intro_font() {
+    const char* paths[] = {
+        "C:/Windows/Fonts/segoeuil.ttf",   // Segoe UI Light
+        "C:/Windows/Fonts/segoeui.ttf",    // fallback
+    };
+
+    for (int i = 0; i < 2; i++) {
+        if (!FileExists(paths[i]))
+            continue;
+        Font f = LoadFontEx(paths[i], 64, NULL, 0);
+        SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+        return f;
+    }
+    return GetFontDefault();
+}
+
 void render_init(u32 width, u32 height) {
     global_width = width;
     global_height = height;
@@ -23,6 +41,8 @@ void render_init(u32 width, u32 height) {
     frame_time.auto_frameskip = true;
     // frame_time.speed_percent = 0;
     // frame_time.frameskip = 4;
+
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
 
     InitWindow(width * DISPLAY_SCALE, height * DISPLAY_SCALE, WINDOW_NAME);
 
@@ -37,8 +57,7 @@ void render_init(u32 width, u32 height) {
     texture = LoadTextureFromImage(image);
     SetTextureFilter(texture, TEXTURE_FILTER_POINT);
 
-    font = LoadFontEx("C:/Windows/Fonts/segoeui.ttf", 32, NULL, 0);
-    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+    font = load_intro_font();
 
     install_window_menu();
 }
@@ -171,22 +190,135 @@ void render_set_speed(u32 value) {
     frame_time.speed_percent = value;
 }
 
+#define C_BG (Color){ 250, 250, 250, 255 }
+#define C_LINE (Color){ 185, 185, 185, 255 }
+#define C_DARK (Color){ 17, 17, 17, 255 }
+
+typedef struct __v3 { float x, y, z; } V3;
+
+static
+float hash(float n) {
+    float s = sinf(n) * 43758.5453f;
+    return s - floorf(s);
+}
+
+static
+V3 v3_rotate(V3 v, float ax, float ay) {
+    float x1 =  v.x * cosf(ay) + v.z * sinf(ay);
+    float z1 = -v.x * sinf(ay) + v.z * cosf(ay);
+    float y2 = v.y * cosf(ax) - z1 * sinf(ax);
+    float z2 = v.y * sinf(ax) + z1 * cosf(ax);
+    return (V3){ x1, y2, z2 };
+}
+
+static
+Vector2 v3_project(V3 v, float cx, float cy, float scale) {
+    const float d = 4.0f;
+    float k = d / (d - v.z) * scale;
+    return (Vector2){ cx + v.x * k, cy - v.y * k };
+}
+
+static
+void draw_diamond(const V3* verts, float ax, float ay, float cx, float cy, float scale, float alpha, bool vertices) {
+    V3 r[6];
+    for (int i = 0; i < 6; i++)
+        r[i] = v3_rotate(verts[i], ax, ay);
+
+    for (int i = 0; i < 6; i++) {
+        for (int j = i + 1; j < 6; j++) {
+            float dot = verts[i].x * verts[j].x + verts[i].y * verts[j].y + verts[i].z * verts[j].z;
+            if (dot < -0.5f)
+                continue;
+
+            float z = (r[i].z + r[j].z) * 0.5f;
+            float a = (0.1f + 0.9f * (z + 1.0f) * 0.5f) * alpha;
+            float thickness = 1.0f + (z + 1.0f) * 0.5f;
+
+            DrawLineEx(v3_project(r[i], cx, cy, scale), v3_project(r[j], cx, cy, scale), thickness, Fade(C_LINE, a));
+        }
+    }
+
+    if (!vertices)
+        return;
+
+    for (int i = 0; i < 6; i++) {
+        Vector2 p = v3_project(r[i], cx, cy, scale);
+        float a = (0.1f + 0.9f * (r[i].z + 1.0f) * 0.5f) * alpha;
+        int sz = 2 + (int)(r[i].z + 1.0f);
+        DrawRectangle((int)p.x - sz / 2, (int)p.y - sz / 2, sz, sz, Fade(C_DARK, a));
+    }
+}
+
+static
+void draw_particles(float t, float cx, float cy, float scale, float alpha, bool front) {
+    for (int i = 0; i < 48; i++) {
+        float theta = hash(i * 1.3f) * 6.2832f;
+        float phi = acosf(2.0f * hash(i * 2.9f) - 1.0f);
+        float radius = 1.2f + hash(i * 4.1f) * 0.8f;
+        float spin = 0.15f + hash(i * 6.7f) * 0.25f;
+        int size = 2 + (int)(hash(i * 8.3f) * 2.0f);
+
+        V3 p = {
+            radius * sinf(phi) * cosf(theta),
+            radius * cosf(phi),
+            radius * sinf(phi) * sinf(theta)
+        };
+        p = v3_rotate(p, t * spin * 0.5f, t * spin);
+
+        if ((p.z >= 0.0f) != front)
+            continue;
+
+        Vector2 s = v3_project(p, cx, cy, scale);
+        float depth = p.z / radius;
+        float a = (0.2f + 0.6f * (depth + 1.0f) * 0.5f) * alpha;
+
+        DrawRectangle((int)s.x, (int)s.y, size, size, Fade(front ? C_DARK : C_LINE, a));
+    }
+}
+
 void render_draw_intro() {
-    BeginDrawing();
-    ClearBackground(BLACK);
-
-    const char* text = "Please insert ROM";
-    float fontSize = 32.0f;
-    float spacing = 1.0f;
-
-    Vector2 size = MeasureTextEx(font, text, fontSize, spacing);
-
-    Vector2 pos = {
-        (GetScreenWidth()  - size.x) / 2.0f,
-        (GetScreenHeight() - size.y) / 2.0f
+    static const V3 octa[6] = {
+        { 1, 0, 0 }, { -1, 0, 0 },
+        { 0, 1, 0 }, { 0, -1, 0 },
+        { 0, 0, 1 }, { 0, 0, -1 },
     };
 
-    DrawTextEx(font, text, pos, fontSize, spacing, RAYWHITE);
+    float t = (float)GetTime();
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
+    float cx = w * 0.5f;
+    float cy = h * 0.5f;
+
+    float fadeIn = fminf(t / 1.2f, 1.0f);
+    float ease = 1.0f - powf(1.0f - fadeIn, 3.0f);
+
+    float scale = fminf((float)w, (float)h) * 0.32f;
+
+    BeginDrawing();
+    ClearBackground(C_BG);
+
+    for (int i = 0; i < 40; i++) {
+        float x = hash(i * 1.7f) * w;
+        float speed = 6.0f + hash(i * 3.1f) * 14.0f;
+        float y = h - fmodf(hash(i * 5.3f) * h + t * speed, (float)h);
+        int s = 1 + (int)(hash(i * 7.7f) * 2.0f);
+        DrawRectangle((int)x, (int)y, s, s, Fade(C_LINE, (0.3f + 0.5f * hash(i * 9.1f)) * ease));
+    }
+
+    draw_particles(t, cx, cy, scale, ease, false);
+    draw_diamond(octa, 0.35f, t * 0.15f, cx, cy, scale * 1.7f, ease * 0.35f, false);
+    draw_diamond(octa, 0.35f, -t * 0.3f, cx, cy, scale, ease, true);
+    draw_particles(t, cx, cy, scale, ease, true);
+
+    const char* text = "PLEASE INSERT ROM";
+    float fontSize = 28.0f;
+    float spacing  = 10.0f;
+    Vector2 size = MeasureTextEx(font, text, fontSize, spacing);
+    Vector2 pos = { cx - size.x / 2.0f, cy - size.y / 2.0f };
+
+    float blink = 0.5f + 0.5f * sinf(t * 2.5f);
+    blink = 0.2f + 0.8f * blink;
+    DrawTextEx(font, text, pos, fontSize, spacing, Fade(C_DARK, blink * ease));
 
     EndDrawing();
 }
