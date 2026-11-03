@@ -18,13 +18,14 @@ static Font font;
 static
 Font load_intro_font() {
     const char* paths[] = {
-        "C:/Windows/Fonts/segoeuil.ttf",   // Segoe UI Light
-        "C:/Windows/Fonts/segoeui.ttf",    // fallback
+        "C:/Windows/Fonts/segoeuil.ttf",
+        "C:/Windows/Fonts/segoeui.ttf"
     };
 
     for (int i = 0; i < 2; i++) {
         if (!FileExists(paths[i]))
             continue;
+
         Font f = LoadFontEx(paths[i], 64, NULL, 0);
         SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
         return f;
