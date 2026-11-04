@@ -39,7 +39,7 @@ Open a ROM:
 Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | Test        | Result |
 |-------------|-----|
-| arm         | Fail |
+| arm         | Success |
 | bios        | Fail |
 | memory      | Success |
 | nes         | Fail |

@@ -936,11 +936,17 @@ bool arm_data_processing(u32 instruction) {
             return false;
     }
 
+    if (test && rd == 15) {
+        arm_restore_cpsr_from_spsr();
+        return true;
+    }
+
     if (!test && rd == 15) {
         if (set_flags)
             arm_restore_cpsr_from_spsr();
 
-        MASK_CLEAR(result, MASK_ANY_SET(cpu->cpsr, PSR_T_BIT) ? 1 : 3);
+        MASK_CLEAR(result, MASK_ANY_SET(cpu->cpsr, PSR_T_BIT) ? 1u : 3u);
+
         cpu_set_pc(result);
         return true;
     }
@@ -951,7 +957,9 @@ bool arm_data_processing(u32 instruction) {
     if (set_flags) {
         bool carry = arithmetic ? added.carry : operand2.carry;
         bool overflow = arithmetic ? added.overflow : false;
-        arm_update_data_processing_flags(result, carry, arithmetic, overflow);
+
+        arm_update_data_processing_flags(
+            result, carry, arithmetic, overflow);
     }
 
     return true;
