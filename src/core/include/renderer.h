@@ -59,4 +59,6 @@ void render_draw_intro();
 void render_draw_loading_rom();
 void render_draw_error(const char* text);
 
+void render_set_enable_fps(bool state);
+
 #endif // RENDERER_H

@@ -14,15 +14,12 @@ static u32 global_width, global_height;
 static frame_time_t frame_time;
 static bool should_close;
 static Font font;
+static Font fps_font;
+static bool renderer_draw_fps = false;
 
 static
-Font load_intro_font() {
-    const char* paths[] = {
-        "C:/Windows/Fonts/segoeuil.ttf",
-        "C:/Windows/Fonts/segoeui.ttf"
-    };
-
-    for (int i = 0; i < 2; i++) {
+Font load_first_font(const char* const* paths, int count) {
+    for (int i = 0; i < count; i++) {
         if (!FileExists(paths[i]))
             continue;
 
@@ -40,8 +37,6 @@ void render_init(u32 width, u32 height) {
 
     frame_time.speed_percent = 100;
     frame_time.auto_frameskip = true;
-    // frame_time.speed_percent = 0;
-    // frame_time.frameskip = 4;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
 
@@ -58,9 +53,36 @@ void render_init(u32 width, u32 height) {
     texture = LoadTextureFromImage(image);
     SetTextureFilter(texture, TEXTURE_FILTER_POINT);
 
-    font = load_intro_font();
+    const char* intro_paths[] = {
+        "C:/Windows/Fonts/segoeuil.ttf",
+        "C:/Windows/Fonts/segoeui.ttf"
+    };
+
+    const char* fps_paths[] = {
+        "C:/Windows/Fonts/segoeuib.ttf",
+        "C:/Windows/Fonts/segoeui.ttf"
+    };
+
+    font = load_first_font(intro_paths, sizeof(intro_paths) / sizeof(char*));
+    fps_font = load_first_font(fps_paths, sizeof(fps_paths) / sizeof(char*));
 
     install_window_menu();
+}
+
+static
+void render_draw_fps() {
+    char text[16];
+    snprintf(text, sizeof(text), "%d FPS", GetFPS());
+
+    float fontSize = 24.0f;
+    float spacing = 2.0f;
+    float margin = 10.0f;
+
+    Vector2 size = MeasureTextEx(fps_font, text, fontSize, spacing);
+    Vector2 pos = { GetScreenWidth() - size.x - margin, margin };
+
+    DrawTextEx(fps_font, text, (Vector2){ pos.x + 2.0f, pos.y + 2.0f }, fontSize, spacing, BLACK);
+    DrawTextEx(fps_font, text, pos, fontSize, spacing, WHITE);
 }
 
 void render_present(u32* buffer) {
@@ -76,6 +98,10 @@ void render_present(u32* buffer) {
         0.0f,
         WHITE
     );
+
+    if (renderer_draw_fps)
+        render_draw_fps();
+
     EndDrawing();
 }
 
@@ -86,6 +112,7 @@ bool render_should_close() {
 void render_close() {
     UnloadTexture(texture);
     UnloadFont(font);
+    UnloadFont(fps_font);
     CloseWindow();
 }
 
@@ -334,4 +361,8 @@ void render_draw_loading_rom() {
 
 void render_draw_error(const char* text) {
     render_draw_screen(text, false);
+}
+
+void render_set_enable_fps(bool state) {
+    renderer_draw_fps = state;
 }

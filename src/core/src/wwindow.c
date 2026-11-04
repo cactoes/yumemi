@@ -25,6 +25,7 @@ static WNDPROC global_old_wnd_proc;
 static HMENU global_frame_skip_menu;
 static HMENU global_speed_menu;
 static HMENU global_file_menu;
+static HMENU global_emulator_menu;
 
 extern char* rom_path;
 
@@ -161,6 +162,15 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     menu_handle_speed(LOWORD(wParam));
                     break;
                 }
+                case MENU_TOGGLE_FPS: {
+                    UINT state = GetMenuState(global_emulator_menu, MENU_TOGGLE_FPS, MF_BYCOMMAND);
+                    bool enable = !(state & MF_CHECKED);
+
+                    CheckMenuItem(global_emulator_menu, MENU_TOGGLE_FPS, MF_BYCOMMAND | (enable ? MF_CHECKED : MF_UNCHECKED));
+                    render_set_enable_fps(enable);
+                    return 0;
+                }
+
                 case MENU_HELP_KEYBINDS:
                     show_help_menu();
                     break;
@@ -188,9 +198,9 @@ void install_window_menu() {
 
     AppendMenuA(menu, MF_POPUP, (UINT_PTR)global_file_menu, "File");
 
-    HMENU emulator_menu = CreatePopupMenu();
+    global_emulator_menu = CreatePopupMenu();
     global_frame_skip_menu = CreatePopupMenu();
-
+  
     AppendMenuA(global_frame_skip_menu, MF_STRING, MENU_FRAMESKIP_AUTO, "Auto");
     AppendMenuA(global_frame_skip_menu, MF_STRING, MENU_FRAMESKIP_1,  "1");
     AppendMenuA(global_frame_skip_menu, MF_STRING, MENU_FRAMESKIP_2,  "2");
@@ -211,9 +221,13 @@ void install_window_menu() {
 
     CheckMenuRadioItem(global_speed_menu, MENU_SPEED_100, MENU_SPEED_UNLIMITED, MENU_SPEED_100, MF_BYCOMMAND);
 
-    AppendMenuA(emulator_menu, MF_POPUP, (UINT_PTR)global_frame_skip_menu, "Frame Skip");
-    AppendMenuA(emulator_menu, MF_POPUP, (UINT_PTR)global_speed_menu, "Speed");
-    AppendMenuA(menu, MF_POPUP, (UINT_PTR)emulator_menu, "Emulator");
+    AppendMenuA(global_emulator_menu, MF_POPUP, (UINT_PTR)global_frame_skip_menu, "Frame Skip");
+    AppendMenuA(global_emulator_menu, MF_POPUP, (UINT_PTR)global_speed_menu, "Speed");
+    AppendMenuA(menu, MF_POPUP, (UINT_PTR)global_emulator_menu, "Emulator");
+
+    AppendMenuA(global_emulator_menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuA(global_emulator_menu, MF_STRING, MENU_TOGGLE_FPS, "Show FPS");
+    CheckMenuItem(global_emulator_menu, MENU_TOGGLE_FPS, MF_BYCOMMAND);
 
     HMENU help_menu = CreatePopupMenu();
     AppendMenuA(help_menu, MF_STRING, MENU_HELP_KEYBINDS, "Keybinds");
@@ -223,7 +237,18 @@ void install_window_menu() {
     AppendMenuA(about_menu, MF_STRING, MENU_ABOUT_INFO, "Info");
     AppendMenuA(menu, MF_POPUP, (UINT_PTR)about_menu, "About");
 
+    RECT client;
+    GetClientRect(hwnd, &client);
+
     SetMenu(hwnd, menu);
+
+    RECT rect = { 0, 0, client.right, client.bottom };
+    DWORD style = (DWORD)GetWindowLongPtr(hwnd, GWL_STYLE);
+    DWORD ex_style = (DWORD)GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    AdjustWindowRectEx(&rect, style, TRUE, ex_style);
+
+    SetWindowPos(hwnd, NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
     DrawMenuBar(hwnd);
 
     global_old_wnd_proc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)MyWndProc);

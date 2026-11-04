@@ -26,6 +26,8 @@
 #define MENU_SPEED_500          1205
 #define MENU_SPEED_UNLIMITED    1206
 
+#define MENU_TOGGLE_FPS         1501
+
 #define MENU_HELP_KEYBINDS      1301
 
 #define MENU_ABOUT_INFO         1401
