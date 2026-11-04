@@ -59,6 +59,8 @@
 #define SWI_HALT                    0x02
 #define SWI_INTR_WAIT               0x04
 #define SWI_VBLANK_INTR_WAIT        0x05
+#define SWI_BIOS_DIV                0x06
+#define SWI_BIOS_DIV_ARM            0x07
 #define SWI_CPU_SET                 0x0b
 #define SWI_CPU_FAST_SET            0x0c
 #define SWI_BG_AFFINE_SET           0x0e
@@ -175,6 +177,12 @@ typedef struct __alu_add_result {
     bool carry;
     bool overflow;
 } alu_add_result_t;
+
+typedef struct __bios_div_result {
+    i32 quotient;
+    i32 remainder;
+    u32 abs_quotient;
+} bios_div_result_t;
 
 typedef bool(*arm_instruction_handler_t)(u32 instruction);
 typedef bool(*thumb_instruction_handler_t)(u16 instruction);

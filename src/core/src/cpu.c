@@ -564,6 +564,30 @@ bool bios_hle_lz77_uncompress(bool vram) {
 }
 
 static
+bios_div_result_t bios_div(i32 number, i32 denom) {
+    bios_div_result_t result;
+
+    if (denom == 0) {
+        result.quotient = number < 0 ? -1 : 1;
+        result.remainder = number;
+        result.abs_quotient = 1;
+        return result;
+    }
+
+    if (denom == -1 && number == INT32_MIN) {
+        result.quotient = INT32_MIN;
+        result.remainder = 0;
+        result.abs_quotient = 0x80000000u;
+        return result;
+    }
+
+    result.quotient = number / denom;
+    result.remainder = number % denom;
+    result.abs_quotient = (uint32_t)(result.quotient < 0 ? -result.quotient : result.quotient);
+    return result;
+}
+
+static
 bool bios_hle_dispatch(u32 service) {
     cpu_t* cpu = get_cpu();
     switch (service) {
@@ -577,6 +601,20 @@ bool bios_hle_dispatch(u32 service) {
             return bios_hle_intr_wait((u16)cpu->r[1], cpu->r[0] != 0u);
         case SWI_VBLANK_INTR_WAIT:
             return bios_hle_intr_wait(1, true);
+        case SWI_BIOS_DIV: {
+            bios_div_result_t d = bios_div((i32)cpu->r[0], (i32)cpu->r[1]);
+            cpu->r[0] = (u32)d.quotient;
+            cpu->r[1] = (u32)d.remainder;
+            cpu->r[3] = d.abs_quotient;
+            return true;
+        }
+        case SWI_BIOS_DIV_ARM: {
+            bios_div_result_t d = bios_div((i32)cpu->r[1], (i32)cpu->r[2]);
+            cpu->r[0] = (u32)d.quotient;
+            cpu->r[1] = (u32)d.remainder;
+            cpu->r[3] = d.abs_quotient;
+            return true;
+        }
         case SWI_CPU_SET:
             return bios_hle_cpu_set(false);
         case SWI_CPU_FAST_SET:

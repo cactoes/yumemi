@@ -12,7 +12,7 @@ Open a ROM:
 ## Features
 | Component                       | Status |
 |---------------------------------|--------|
-| CPU (ARM + THUMB)               | Done |
+| CPU (ARM + THUMB)               | Mostly |
 | PPU                             | Done |
 | APU                             | Planned |
 | DMA                             | Done |
