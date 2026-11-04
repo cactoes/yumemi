@@ -186,10 +186,18 @@ void render_text(u32 bg) {
     u32 size = BGCNT_SIZE(control);
     u32 width = size & 1u ? 512u : 256u;
     u32 height = size & 2u ? 512u : 256u;
-    u32 sy = (global_ppu.vcount + regs->bg_vofs[bg]) & (height - 1u);
+
+    u16 mosaic = register16(PREG_MOSAIC);
+    bool use_mosaic = (control & 0x0040u) != 0;
+    u32 mosaic_h = use_mosaic ? (mosaic & 15u) + 1u : 1u;
+    u32 mosaic_v = use_mosaic ? ((mosaic >> 4) & 15u) + 1u : 1u;
+
+    u32 line = global_ppu.vcount - (global_ppu.vcount % mosaic_v);
+    u32 sy = (line + regs->bg_vofs[bg]) & (height - 1u);
 
     for (u32 x = 0; x < PPU_WIDTH; x++) {
-        u32 sx = (x + regs->bg_hofs[bg]) & (width - 1u);
+        u32 mx = x - (x % mosaic_h);
+        u32 sx = (mx + regs->bg_hofs[bg]) & (width - 1u);
         u32 color = text_palette_index(control, sx, sy);
         if (color)
             global_ppu.line.bg_color[bg][x] = palette_color(color);
@@ -247,9 +255,14 @@ void render_bitmap(u32 mode) {
             continue;
 
         u32 pixel = sy * width + sx;
-        global_ppu.line.bg_color[2][x] = mode == 4
-            ? palette_color(video8(frame + pixel))
-            : video16(frame + pixel * 2u) & 0x7FFFu;
+
+        if (mode == 4) {
+            u32 index = video8(frame + pixel);
+            if (index)
+                global_ppu.line.bg_color[2][x] = palette_color(index);
+        } else {
+            global_ppu.line.bg_color[2][x] = video16(frame + pixel * 2u) & 0x7fffu;
+        }
     }
 }
 
@@ -561,7 +574,7 @@ void end_scanline() {
         status |= DISPSTAT_VBLANK_FLAG;
         global_ppu.frame_ready = true;
     } else if (global_ppu.vcount == TOTAL_LINES - 1u) {
-        status = (u16)(status & ~DISPSTAT_VCOUNT_FLAG);
+        status = (u16)(status & ~DISPSTAT_VBLANK_FLAG);
     }
 
     if (vcount_match)
@@ -582,6 +595,7 @@ void end_scanline() {
 
 void ppu_reset() {
     memset(&global_ppu, 0, sizeof(global_ppu));
+    global_ppu.render_enabled = true;
     reload_affine();
 
     u16 status = register16(PREG_DISPSTAT);

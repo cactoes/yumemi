@@ -239,7 +239,7 @@ u16 mbus_read16(u32 address, u8 flags) {
         return (u16)mbus_rom_read(address, 2);
 
     if (is_flash_region_or_mirror(region))
-        return (u16)((u32)flash_read8(address, flags) * 0x0101u, flags);
+        return (u16)((u32)flash_read8(address, flags) * 0x0101u);
 
     const u8 *p = memory_address_to_ram(address);
     if (!p)
@@ -360,9 +360,34 @@ void mbus_write8(u32 address, u8 value, u8 flags) {
         return;
     }
 
-    u8 *p = memory_address_to_ram(address);
+    if (region == MEMORY_BUS_REGION_OAM)
+        return;
+
+    u8* p = memory_address_to_ram(address);
     if (!p)
         return;
+
+    if (region == MEMORY_BUS_REGION_PALETTE) {
+        u16 doubled = (u16)((u16)value | ((u16)value << 8));
+        write_le16(p, doubled);
+        return;
+    }
+
+    if (region == MEMORY_BUS_REGION_VRAM) {
+        u32 offset = address & 0x0001ffffu;
+        if (offset >= MEMORY_BUS_VRAM_SIZE)
+            offset -= 0x8000u;
+
+        u32 mode = read_le16(global_memory_bus.ram.io) & 7u;
+        u32 bg_end = mode >= 3 ? 0x14000u : 0x10000u;
+
+        if (offset >= bg_end)
+            return;
+
+        u16 doubled = (u16)((u16)value | ((u16)value << 8));
+        write_le16(global_memory_bus.ram.video + (offset & ~1u), doubled);
+        return;
+    }
 
     write_le8(p, value);
 }
@@ -406,8 +431,6 @@ void mbus_reset_io_display() {
         io_write16(base + 2, 0, IO_DEFAULT);
         io_write16(base + 4, 0, IO_DEFAULT);
         io_write16(base + 6, 0x0100, IO_DEFAULT);
-        io_write32(base + 8, 0, IO_DEFAULT);
-        io_write32(base + 0xc, 0, IO_DEFAULT);
     }
 
     for (u32 offset = 0x040; offset <= 0x04a; offset += 2)

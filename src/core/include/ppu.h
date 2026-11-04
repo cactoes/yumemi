@@ -66,6 +66,7 @@ enum {
     PREG_WIN0V = 0x44,
     PREG_WIN1V = 0x46,
     PREG_WININ = 0x48,
+    PREG_MOSAIC = 0x4cu,
     PREG_WINOUT = 0x4A,
     PREG_BLDCNT = 0x50,
     PREG_BLDALPHA = 0x52,

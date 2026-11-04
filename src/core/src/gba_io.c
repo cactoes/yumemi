@@ -67,6 +67,13 @@ void io_reset() {
 
     io_write_raw16(IO_DISPCNT, 0x0080);
     io_write_raw16(IO_KEYINPUT, 0x03ff);
+
+    for (u32 base = 0x020; base <= 0x030; base += 0x010) {
+        io_write_raw16(base, 0x0100);
+        io_write_raw16(base + 0x002, 0x0000);
+        io_write_raw16(base + 0x004, 0x0000);
+        io_write_raw16(base + 0x006, 0x0100);
+    }
 }
 
 bool io_cpu_handle_irq(u32* cycles) {
