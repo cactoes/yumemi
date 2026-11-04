@@ -82,3 +82,14 @@ void get_rom_title(u8* cartridge, char* buffer, u64 buffer_size) {
     memcpy(buffer, header->game_title, sizeof(header->game_title));
     buffer[12] = '\0';
 }
+
+const char* rom_status_to_text(u32 status) {
+    switch (status) {
+        case ROM_BUSY: return "ROM BUSY";
+        case ROM_OK: return "ROM OK";
+        case ROM_ERROR_FILE_FAILED: return "FAILED TO READ FILE";
+        case ROM_ERROR_INVALID_ROM: return "INVALID ROM";
+        case ROM_ERROR_INVALID_SIZE: return "INVALID ROM SIZE";
+        default: return "UNKNOWN ROM ERROR";
+    }
+}

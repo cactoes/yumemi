@@ -14,6 +14,11 @@ enable_language(RC)
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS src/*)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} app.rc)
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON
+    C_EXTENSIONS OFF)
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE ${ALL_DEPENDENCY_INCLUDES}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

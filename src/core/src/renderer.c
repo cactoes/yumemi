@@ -191,12 +191,6 @@ void render_set_speed(u32 value) {
     frame_time.speed_percent = value;
 }
 
-#define C_BG (Color){ 250, 250, 250, 255 }
-#define C_LINE (Color){ 185, 185, 185, 255 }
-#define C_DARK (Color){ 17, 17, 17, 255 }
-
-typedef struct __v3 { float x, y, z; } V3;
-
 static
 float hash(float n) {
     float s = sinf(n) * 43758.5453f;
@@ -204,24 +198,24 @@ float hash(float n) {
 }
 
 static
-V3 v3_rotate(V3 v, float ax, float ay) {
+v3_t v3_rotate(v3_t v, float ax, float ay) {
     float x1 =  v.x * cosf(ay) + v.z * sinf(ay);
     float z1 = -v.x * sinf(ay) + v.z * cosf(ay);
     float y2 = v.y * cosf(ax) - z1 * sinf(ax);
     float z2 = v.y * sinf(ax) + z1 * cosf(ax);
-    return (V3){ x1, y2, z2 };
+    return (v3_t){ x1, y2, z2 };
 }
 
 static
-Vector2 v3_project(V3 v, float cx, float cy, float scale) {
+Vector2 v3_project(v3_t v, float cx, float cy, float scale) {
     const float d = 4.0f;
     float k = d / (d - v.z) * scale;
     return (Vector2){ cx + v.x * k, cy - v.y * k };
 }
 
 static
-void draw_diamond(const V3* verts, float ax, float ay, float cx, float cy, float scale, float alpha, bool vertices) {
-    V3 r[6];
+void draw_diamond(const v3_t* verts, float ax, float ay, float cx, float cy, float scale, float alpha, bool vertices) {
+    v3_t r[6];
     for (int i = 0; i < 6; i++)
         r[i] = v3_rotate(verts[i], ax, ay);
 
@@ -259,7 +253,7 @@ void draw_particles(float t, float cx, float cy, float scale, float alpha, bool 
         float spin = 0.15f + hash(i * 6.7f) * 0.25f;
         int size = 2 + (int)(hash(i * 8.3f) * 2.0f);
 
-        V3 p = {
+        v3_t p = {
             radius * sinf(phi) * cosf(theta),
             radius * cosf(phi),
             radius * sinf(phi) * sinf(theta)
@@ -277,8 +271,9 @@ void draw_particles(float t, float cx, float cy, float scale, float alpha, bool 
     }
 }
 
-void render_draw_intro() {
-    static const V3 octa[6] = {
+static
+void render_draw_screen(const char* text, bool pulse) {
+    static const v3_t octa[6] = {
         { 1, 0, 0 }, { -1, 0, 0 },
         { 0, 1, 0 }, { 0, -1, 0 },
         { 0, 0, 1 }, { 0, 0, -1 },
@@ -298,12 +293,14 @@ void render_draw_intro() {
     BeginDrawing();
     ClearBackground(C_BG);
 
-    for (int i = 0; i < 40; i++) {
-        float x = hash(i * 1.7f) * w;
-        float speed = 6.0f + hash(i * 3.1f) * 14.0f;
-        float y = h - fmodf(hash(i * 5.3f) * h + t * speed, (float)h);
-        int s = 1 + (int)(hash(i * 7.7f) * 2.0f);
-        DrawRectangle((int)x, (int)y, s, s, Fade(C_LINE, (0.3f + 0.5f * hash(i * 9.1f)) * ease));
+    if (w > 0 && h > 0) {
+        for (int i = 0; i < 40; i++) {
+            float x = hash(i * 1.7f) * w;
+            float speed = 6.0f + hash(i * 3.1f) * 14.0f;
+            float y = h - fmodf(hash(i * 5.3f) * h + t * speed, (float)h);
+            int s = 1 + (int)(hash(i * 7.7f) * 2.0f);
+            DrawRectangle((int)x, (int)y, s, s, Fade(C_LINE, (0.3f + 0.5f * hash(i * 9.1f)) * ease));
+        }
     }
 
     draw_particles(t, cx, cy, scale, ease, false);
@@ -311,15 +308,30 @@ void render_draw_intro() {
     draw_diamond(octa, 0.35f, -t * 0.3f, cx, cy, scale, ease, true);
     draw_particles(t, cx, cy, scale, ease, true);
 
-    const char* text = "PLEASE INSERT ROM";
     float fontSize = 28.0f;
     float spacing  = 10.0f;
     Vector2 size = MeasureTextEx(font, text, fontSize, spacing);
     Vector2 pos = { cx - size.x / 2.0f, cy - size.y / 2.0f };
 
-    float blink = 0.5f + 0.5f * sinf(t * 2.5f);
-    blink = 0.2f + 0.8f * blink;
+    float blink = 1.0f;
+    if (pulse) {
+        blink = 0.5f + 0.5f * sinf(t * 2.5f);
+        blink = 0.2f + 0.8f * blink;
+    }
+
     DrawTextEx(font, text, pos, fontSize, spacing, Fade(C_DARK, blink * ease));
 
     EndDrawing();
+}
+
+void render_draw_intro() {
+    render_draw_screen("PLEASE INSERT ROM", true);
+}
+
+void render_draw_loading_rom() {
+    render_draw_screen("LOADING ROM", true);
+}
+
+void render_draw_error(const char* text) {
+    render_draw_screen(text, false);
 }

@@ -33,5 +33,6 @@
 #include "typedef.h"
 
 void install_window_menu();
+void disable_import_rom();
 
 #endif // WWINDOW_H

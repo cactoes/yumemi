@@ -19,11 +19,17 @@
 #define GBA_KEY_R           (1u << 8)
 #define GBA_KEY_L           (1u << 9)
 
-#define WINDOW_NAME "yumemi - gba emulator"
+#define WINDOW_NAME "Yumemi - GBA emulator"
 #define DISPLAY_SCALE 4
 #define GBA_FRAME_NS 16742706ull
 
+#define C_BG (Color){ 250, 250, 250, 255 }
+#define C_LINE (Color){ 185, 185, 185, 255 }
+#define C_DARK (Color){ 17, 17, 17, 255 }
+
 #include "typedef.h"
+
+typedef struct __v3 { float x, y, z; } v3_t;
 
 typedef struct __frame_time {
     u32 speed_percent;
@@ -50,5 +56,7 @@ void render_set_frame_skip(u32 value);
 void render_set_speed(u32 value);
 
 void render_draw_intro();
+void render_draw_loading_rom();
+void render_draw_error(const char* text);
 
 #endif // RENDERER_H

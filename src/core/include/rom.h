@@ -8,6 +8,7 @@
 #ifndef ROM_H
 #define ROM_H
 
+#define ROM_BUSY                (u32)-1
 #define ROM_OK                  0
 #define ROM_ERROR_FILE_FAILED   1
 #define ROM_ERROR_INVALID_ROM   2
@@ -34,5 +35,7 @@ typedef struct {
 
 u32 load_rom_from_path(const char* path, u8** data_out, u64* size_out);
 void get_rom_title(u8* cartridge, char* buffer, u64 buffer_size);
+
+const char* rom_status_to_text(u32 status);
 
 #endif // ROM_H

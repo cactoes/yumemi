@@ -54,9 +54,6 @@ void open_rom_file_picker() {
                         if (cpath) {
                             WideCharToMultiByte(CP_UTF8, 0, path, -1, cpath, len, NULL, NULL);
                             rom_path = cpath;
-
-                            EnableMenuItem(global_file_menu, MENU_IMPORT_ROM, MF_BYCOMMAND | MF_GRAYED);
-                            DrawMenuBar((HWND)GetWindowHandle());
                         }
                     }
 
@@ -230,4 +227,9 @@ void install_window_menu() {
     DrawMenuBar(hwnd);
 
     global_old_wnd_proc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)MyWndProc);
+}
+
+void disable_import_rom() {
+    EnableMenuItem(global_file_menu, MENU_IMPORT_ROM, MF_BYCOMMAND | MF_GRAYED);
+    DrawMenuBar((HWND)GetWindowHandle());
 }
