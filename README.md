@@ -35,6 +35,23 @@ Open a ROM:
 | Select     | `Backspace` |
 | D-pad      | Arrow keys |
 
+## Test results
+Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
+| Test        | Result |
+|-------------|-----|
+| arm         | Fail |
+| bios        | Fail |
+| memory      | Success |
+| nes         | Fail |
+| ppu         | All Success |
+| flash64     | Fail |
+| flash128    | Fail |
+| (Save) none | Success |
+| sram        | Fail |
+| thumb       | Success |
+| unsafe      | Fail |
+
+
 ## Sources & Tools
 - [Very Sleepy](http://www.codersnotes.com/sleepy/)
 - [GBATEK](https://mgba-emu.github.io/gbatek/)
