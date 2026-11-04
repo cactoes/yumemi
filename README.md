@@ -51,7 +51,6 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | thumb       | Success |
 | unsafe      | Fail |
 
-
 ## Sources & Tools
 - [Very Sleepy](http://www.codersnotes.com/sleepy/)
 - [GBATEK](https://mgba-emu.github.io/gbatek/)
