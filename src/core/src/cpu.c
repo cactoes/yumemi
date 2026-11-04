@@ -609,7 +609,7 @@ bool bios_hle_dispatch(u32 service) {
             return true;
         }
         case SWI_BIOS_DIV_ARM: {
-            bios_div_result_t d = bios_div((i32)cpu->r[1], (i32)cpu->r[2]);
+            bios_div_result_t d = bios_div((i32)cpu->r[1], (i32)cpu->r[0]);
             cpu->r[0] = (u32)d.quotient;
             cpu->r[1] = (u32)d.remainder;
             cpu->r[3] = d.abs_quotient;
@@ -1447,7 +1447,7 @@ bool arm_decode_swi_coprocessor(u32 instruction) {
 static
 const arm_instruction_handler_t arm_handlers[8] = {
     arm_decode_data_misc,
-    arm_data_processing,
+    arm_decode_data_misc,
     arm_single_data_transfer,
     arm_single_data_transfer,
     arm_block_data_transfer,
