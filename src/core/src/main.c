@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <raylib.h>
 #include <threads.h>
 #undef bool
@@ -126,8 +127,11 @@ int wait_for_rom() {
     return result;
 }
 
-int main() {
+int main(int argc, char** argv) {
     render_init(PPU_WIDTH, PPU_HEIGHT);
+
+    if (argc > 1)
+        rom_path = _strdup(argv[1]);
 
     if (wait_for_rom() != 1) {
         CloseWindow();

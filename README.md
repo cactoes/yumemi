@@ -2,7 +2,12 @@
   <img src="src/core/icon.png" alt="Yumemi icon" width="128" height="128">
 </p>
 <h1 align="center">Yumemi</h1>
-<p align="center">A Game Boy Advance emulator</p>
+<p align="center">A Game Boy Advance emulator written in C using raylib</p>
+
+## Usage
+Open a ROM:
+- Drag and drop a `.gba` file onto `yumemi.exe`.
+- Open a `.gba` in the emulator itself (**File**->**Import ROM**)
 
 ## Features
 | Component                       | Status |
