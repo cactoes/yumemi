@@ -21,6 +21,7 @@ static u32 rom_load_status = ROM_OK;
 static mtx_t rom_mutex;
 char* rom_path = 0;
 
+static
 u32 load_rom(const char* path) {
     u8* rom_data = 0;
     u64 rom_size = 0;
@@ -45,6 +46,7 @@ u32 load_rom(const char* path) {
     return ROM_OK;
 }
 
+static
 int worker_load_rom(void* data) {
     u32 result = load_rom((const char*)data);
 
