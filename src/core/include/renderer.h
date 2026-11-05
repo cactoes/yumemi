@@ -20,7 +20,7 @@
 #define GBA_KEY_L           (1u << 9)
 
 #define WINDOW_NAME "Yumemi - GBA emulator"
-#define DISPLAY_SCALE 4
+#define INITIAL_DISPLAY_SCALE 3
 #define GBA_FRAME_NS 16742706ull
 
 #define C_BG (Color){ 250, 250, 250, 255 }

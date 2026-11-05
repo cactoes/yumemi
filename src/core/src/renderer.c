@@ -12,7 +12,7 @@
 #include "sram.h"
 
 static Texture2D texture;
-static u32 global_width, global_height;
+static u32 global_base_width, global_base_height;
 static frame_time_t frame_time;
 static bool should_close;
 static Font font;
@@ -33,16 +33,17 @@ Font load_first_font(const char* const* paths, int count) {
 }
 
 void render_init(u32 width, u32 height) {
-    global_width = width;
-    global_height = height;
+    global_base_width = width;
+    global_base_height = height;
+
     should_close = false;
 
     frame_time.speed_percent = 100;
     frame_time.auto_frameskip = true;
 
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
-
-    InitWindow(width * DISPLAY_SCALE, height * DISPLAY_SCALE, WINDOW_NAME);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
+    InitWindow(width * INITIAL_DISPLAY_SCALE, height * INITIAL_DISPLAY_SCALE, WINDOW_NAME);
+    SetWindowMinSize(240, 160);
 
     Image image = {
         .data = 0,
@@ -92,12 +93,23 @@ void render_draw_fps() {
 void render_present(u32* buffer) {
     UpdateTexture(texture, buffer);
 
+    float scale_x = GetScreenWidth() / (float)global_base_width;
+    float scale_y = GetScreenHeight() / (float)global_base_height;
+    float scale = fminf(scale_x, scale_y);
+
+    Rectangle destination = {
+        .x = (GetScreenWidth()  - global_base_width * scale) / 2.0f,
+        .y = (GetScreenHeight() - global_base_height * scale) / 2.0f,
+        .width = global_base_width * scale,
+        .height = global_base_height * scale,
+    };
+
     BeginDrawing();
     ClearBackground(BLACK);
     DrawTexturePro(
         texture,
-        (Rectangle){ 0, 0, (float)global_width, (float)global_height },
-        (Rectangle){ 0, 0, (float)global_width * DISPLAY_SCALE, (float)global_height * DISPLAY_SCALE },
+        (Rectangle){ 0, 0, (float)global_base_width, (float)global_base_height },
+        destination,
         (Vector2){ 0, 0 },
         0.0f,
         WHITE
