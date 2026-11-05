@@ -284,12 +284,18 @@ u8 mbus_read8(u32 address, u8 flags) {
 }
 
 void mbus_write32(u32 address, u32 value, u8 flags) {
-    address &= ~3u;
-
     if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
         mbus_handle_access_cycles(address, 4);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
+
+    if (is_flash_region_or_mirror(region)) {
+        u8 byte = (u8)(value >> ((address & 3u) * 8u));
+        flash_write8(address, byte, flags);
+        return;
+    }
+
+    address &= ~3u;
 
     if (region == MEMORY_BUS_REGION_IO) {
         io_write32(address & 0x00ffffffu, value, flags);
@@ -299,11 +305,6 @@ void mbus_write32(u32 address, u32 value, u8 flags) {
     if (is_rom_region_or_mirror(region))
         return;
 
-    if (is_flash_region_or_mirror(region)) {
-        flash_write8(address, (u8)value, flags);
-        return;
-    }
-
     u8* p = memory_address_to_ram(address);
     if (!p)
         return;
@@ -312,12 +313,18 @@ void mbus_write32(u32 address, u32 value, u8 flags) {
 }
 
 void mbus_write16(u32 address, u16 value, u8 flags) {
-    address &= ~1u;
-
     if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
         mbus_handle_access_cycles(address, 2);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
+
+    if (is_flash_region_or_mirror(region)) {
+        u8 byte = (u8)(value >> ((address & 1u) * 8u));
+        flash_write8(address, byte, flags);
+        return;
+    }
+
+    address &= ~1u;
 
     if (region == MEMORY_BUS_REGION_IO) {
         io_write16(address & 0x00ffffffu, value, flags);
@@ -334,11 +341,6 @@ void mbus_write16(u32 address, u16 value, u8 flags) {
 
     if (is_rom_region_or_mirror(region))
         return;
-
-    if (is_flash_region_or_mirror(region)) {
-        flash_write8(address, (u8)value, flags);
-        return;
-    }
 
     u8 *p = memory_address_to_ram(address);
     if (!p)

@@ -44,8 +44,8 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | memory      | Success |
 | nes         | Fail (001) |
 | ppu         | All Success |
-| flash64     | Fail (006) |
-| flash128    | Fail (006) |
+| flash64     | Success |
+| flash128    | Success |
 | (Save) none | Success |
 | sram        | Fail (002) |
 | thumb       | Success |

@@ -355,8 +355,6 @@ void bios_hle_copy_memory(u32 src, u32 dst, u32 count, bool word, bool fill) {
         return;
 
     if (word) {
-        MASK_CLEAR(src, 3u);
-        MASK_CLEAR(dst, 3u);
         u32 fill_value = fill ? mbus_read32(src, MBUS_DEFAULT) : 0u;
         for (u32 index = 0u; index < count; index++) {
             u32 value = fill ? fill_value : mbus_read32(src, MBUS_DEFAULT);
@@ -365,8 +363,6 @@ void bios_hle_copy_memory(u32 src, u32 dst, u32 count, bool word, bool fill) {
             dst += 4u;
         }
     } else {
-        MASK_CLEAR(src, 1u);
-        MASK_CLEAR(dst, 1u);
         u16 fill_value = fill ? mbus_read16(src, MBUS_DEFAULT) : 0u;
         for (u32 index = 0u; index < count; index++) {
             u16 value = fill ? fill_value : mbus_read16(src, MBUS_DEFAULT);
@@ -1006,7 +1002,7 @@ bool arm_block_data_transfer(u32 instruction) {
     bool rn_in_list = MASK_ANY_SET(rlist, 1u << rn);
     bool rn_first = rn_in_list && !MASK_ANY_SET(rlist, (1u << rn) - 1u);
 
-    u32 address = start & ~3u;
+    u32 address = start;
     u32 pc_value = 0;
 
     if (load && writeback)
@@ -1175,7 +1171,7 @@ bool arm_swap(u32 instruction) {
         mbus_write8(address, (u8)source, MBUS_DEFAULT);
     } else {
         loaded = cpu_load_word_rotated(address);
-        mbus_write32(address & ~3u, source, MBUS_DEFAULT);
+        mbus_write32(address, source, MBUS_DEFAULT);
     }
 
     cpu->r[rd] = loaded;
@@ -1209,7 +1205,7 @@ bool arm_halfword_data_transfer(u32 instruction) {
 
     if (!load) {
         u32 value = arm_read_store_reg(rd);
-        mbus_write16(address & ~1u, (u16)value, MBUS_DEFAULT);
+        mbus_write16(address, (u16)value, MBUS_DEFAULT);
 
         if (do_writeback)
             cpu->r[rn] = adjusted_base;
@@ -1415,7 +1411,7 @@ bool arm_single_data_transfer(u32 instruction) {
         if (byte)
             mbus_write8(address, (u8)value, MBUS_DEFAULT);
         else
-            mbus_write32(address & ~3u, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MBUS_DEFAULT);
 
         if (do_writeback)
             cpu->r[rn] = adjusted_base;
@@ -1583,13 +1579,13 @@ bool thumb_transfer_register(u32 rd, u32 address, bool load, u32 type) {
 
     switch (type) {
         case THUMB_MEMORY_WORD:
-            mbus_write32(address & ~3u, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MBUS_DEFAULT);
             break;
         case THUMB_MEMORY_BYTE:
             mbus_write8(address, (u8)value, MBUS_DEFAULT);
             break;
         case THUMB_MEMORY_HALFWORD:
-            mbus_write16(address & ~1u, (u16)value, MBUS_DEFAULT);
+            mbus_write16(address, (u16)value, MBUS_DEFAULT);
             break;
         default:
             return false;
@@ -1955,7 +1951,7 @@ bool thumb_push_pop(u16 instruction) {
     u32 base = cpu->sp;
 
     if (rlist == 0u) {
-        u32 address = (load ? base : base - 0x40) & ~3u;
+        u32 address = (load ? base : base - 0x40);
 
         if (load) {
             u32 target = mbus_read32(address, MBUS_DEFAULT);
@@ -1975,7 +1971,7 @@ bool thumb_push_pop(u16 instruction) {
     u32 total = cpu_count_register_list(rlist) * 4;
     u32 new_sp = load ? base + total : base - total;
 
-    u32 address = (load ? base : new_sp) & ~3u;
+    u32 address = (load ? base : new_sp);
 
     u32 pc_value = 0;
 
@@ -2019,7 +2015,7 @@ bool thumb_load_store_multiple(u16 instruction) {
     u32 rlist = instruction & 0xffu;
 
     u32 base = cpu->r[rb];
-    u32 address = base & ~3u;
+    u32 address = base;
 
     if (rlist == 0u) {
         if (load) {
