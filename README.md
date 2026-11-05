@@ -22,7 +22,7 @@ Open a ROM:
 | Save data (SRAM, Flash, EEPROM) | Partial |
 | Save states                     | Partial |
 | RTC                             | Planned |
-| BIOS                            | HLE only |
+| BIOS                            | Partial HLE only |
 
 ## Controls
 | GBA button | Key |
