@@ -14,7 +14,7 @@ Open a ROM:
 |---------------------------------|--------|
 | CPU (ARM + THUMB)               | Mostly |
 | PPU                             | Done |
-| APU                             | Planned |
+| APU                             | Partial |
 | DMA                             | Done |
 | Timers                          | Done |
 | Interrupts                      | Done |

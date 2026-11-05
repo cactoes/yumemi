@@ -22,6 +22,11 @@ u32 dma_read_reg32(u32 offset) {
 }
 
 static
+bool dma_is_sound(u32 channel, u16 control) {
+    return (channel == 1 || channel == 2) && (((control >> 12) & 3u) == 3);
+}
+
+static
 u32 dma_count(u32 ch) {
     u32 count = io_read_raw16(DMA_BASE(ch) + 8);
 
@@ -97,10 +102,11 @@ void dma_step(u32* cycles) {
         u16 control = dma_ch->control;
         u32 source = dma_ch->source;
         u32 destination = dma_ch->destination;
-        bool word = (control & DMA_WORD) != 0;
+        bool sound = dma_is_sound(ch, control);
+        bool word = sound || (control & DMA_WORD) != 0;
         u32 step = word ? 4u : 2u;
         u32 source_control = (control >> 7) & 3u;
-        u32 destination_control = (control >> 5) & 3u;
+        u32 destination_control = sound ? 2 : ((control >> 5) & 3u);
 
         if (word)
             mbus_write32(destination, mbus_read32(source, 0), MEM_ACCESS_DEFAULT);
@@ -162,7 +168,7 @@ void dma_on_control_write(u32 channel, u16 old_control, u16 new_control) {
     }
 
     u32 base = DMA_BASE(channel);
-    u32 alignment = (new_control & DMA_WORD) ? 3u : 1u;
+    u32 alignment = (dma_is_sound(channel, new_control) || (new_control & DMA_WORD)) ? 3 : 1;
 
     dma_ch->control = new_control;
     dma_ch->source = dma_read_reg32(base) & DMA_SRC_MASK(channel) & ~alignment;
@@ -182,4 +188,22 @@ void dma_on_hblank() {
 
 void dma_on_vblank() {
     dma_trigger(1);
+}
+
+void dma_on_fifo_request(u32 destination) {
+    for (u32 ch = 1; ch <= 2; ch++) {
+        dma_channel_t* channel = get_dma_channel(ch);
+
+        if (!channel->enabled || channel->active)
+            continue;
+
+        if (!dma_is_sound(ch, channel->control))
+            continue;
+
+        if (channel->destination != destination)
+            continue;
+
+        channel->remaining = 4;
+        channel->active = true;
+    }
 }

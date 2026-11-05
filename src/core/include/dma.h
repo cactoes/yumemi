@@ -42,4 +42,6 @@ void dma_on_control_write(u32 channel, u16 old_control, u16 new_control);
 void dma_on_hblank();
 void dma_on_vblank();
 
+void dma_on_fifo_request(u32 destination);
+
 #endif // DMA_H

@@ -10,6 +10,7 @@
 #include "wwindow.h"
 #include "eeprom.h"
 #include "sram.h"
+#include "apu.h"
 
 static Texture2D texture;
 static u32 global_base_width, global_base_height;
@@ -263,6 +264,7 @@ void render_set_frame_skip(u32 value) {
 
 void render_set_speed(u32 value) {
     frame_time.speed_percent = value;
+    apu_set_muted(value != 100);
 }
 
 static

@@ -147,14 +147,16 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    apu_enable_audio();
     disable_import_rom();
-
     render_update_events();
 
     while (!render_should_close()) {
         static u32 counter = 0;
-        if ((counter++ & 0xfff) == 0)
+        if ((counter++ & 0xfff) == 0) {
             render_poll_events();
+            apu_audio_pump();
+        }
 
         u32 cycles;
 
@@ -171,12 +173,12 @@ int main(int argc, char** argv) {
 
         ppu_step(cycles);
         timer_step(cycles);
-        apu_step(cycles);
         eeprom_step(cycles);
 
         render_handle_frame();
     }
 
+    apu_audio_close();
     render_close();
     free(rom_path);
     // free(rom_data)

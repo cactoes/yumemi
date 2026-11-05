@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "dma.h"
 #include "ppu.h"
+#include "apu.h"
 
 static bool io_cpu_halted = false;
 static u8* io_base = 0;
@@ -103,12 +104,19 @@ u8 io_read8(u32 offset, u8 flags) {
     if (offset >= MEMORY_BUS_IO_SIZE)
         return 0;
 
+    if (offset >= 0x068u && offset <= 0x06fu)
+        return apu_read8(offset, flags);
+
     return io_base[offset];
 }
 
 u16 io_read16(u32 offset, u8 flags) {
     if (io_is_timer(offset))
         return io_timer_read16(offset & ~1u);
+
+    if (offset >= 0x068u && offset <= 0x06fu) {
+        return (u16)(io_read8(offset, flags) | ((u16)io_read8(offset + 1u, flags) << 8));
+    }
 
     if (offset < MEMORY_BUS_IO_SIZE - 1u)
         return (u16)(io_base[offset] | ((u16)io_base[offset + 1u] << 8));
@@ -125,12 +133,27 @@ bool io_is_dma_control_high(u32 offset) {
     return offset >= IO_DMA_BASE && offset < IO_DMA_END && (offset - IO_DMA_BASE) % IO_DMA_STRIDE == 11;
 }
 
+static
+bool is_apu_write(u32 offset) {
+    return (offset >= 0x068u && offset <= 0x06fu) ||
+        offset == 0x080u || offset == 0x081u ||
+        offset == 0x082u || offset == 0x083u ||
+        offset == 0x084u || offset == 0x085u ||
+        offset == 0x088u || offset == 0x089u ||
+        (offset >= 0x0a0u && offset <= 0x0a7u);
+}
+
 void io_write8(u32 offset, u8 value, u8 flags) {
     if (MASK_IS_SET(flags, MEM_ACCESS_NOSIDE_EFFECT))
         return;
 
     if (offset >= MEMORY_BUS_IO_SIZE)
         return;
+
+    if (is_apu_write(offset)) {
+        apu_write8(offset, value, flags);
+        return;
+    }
 
     if (io_is_timer(offset)) {
         u32 aligned = offset & ~1u;

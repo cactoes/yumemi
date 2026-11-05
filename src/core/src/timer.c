@@ -3,6 +3,7 @@
 
 #include "timer.h"
 #include "gba_io.h"
+#include "apu.h"
 
 static const u32 timer_shifts[TIMER_COUNT] = { 0, 6, 8, 10 };
 static timer_state_t global_timer;
@@ -33,6 +34,11 @@ void timer_increment(u32 index, u32 ticks) {
 
     timer->counter = (u16)(timer->reload + over % period);
 
+    if (index < 2) {
+        for (u32 i = 0; i < overflows; i++)
+            apu_timer_overflow(index);
+    }
+
     if (timer->control & TIMER_CONTROL_IRQ_ENABLE)
         io_request_irq(IRQ_TIMER(index));
 
@@ -43,7 +49,10 @@ void timer_increment(u32 index, u32 ticks) {
     }
 }
 
-void timer_step(u32 cycles) {
+static
+u32 timer_next_event(void) {
+    u32 next = apu_cycles_until_sample();
+
     for (u32 i = 0; i < TIMER_COUNT; i++) {
         timer_base_t* timer = get_timer(i);
 
@@ -55,12 +64,45 @@ void timer_step(u32 cycles) {
 
         u32 shift = timer_shifts[timer->control & TIMER_CONTROL_PRESCALER_MASK];
 
-        timer->accumulator += cycles;
-        u32 ticks = timer->accumulator >> shift;
-        timer->accumulator &= (1u << shift) - 1;
+        u32 ticks = 0x10000u - timer->counter;
+        u32 remaining = (ticks << shift) - timer->accumulator;
 
-        if (ticks)
-            timer_increment(i, ticks);
+        if (remaining < next)
+            next = remaining;
+    }
+
+    return next;
+}
+
+void timer_step(u32 cycles) {
+    while (cycles != 0) {
+        u32 step = timer_next_event();
+
+        if (step > cycles)
+            step = cycles;
+
+        apu_step(step);
+
+        for (u32 i = 0; i < TIMER_COUNT; i++) {
+            timer_base_t* timer = get_timer(i);
+
+            if (!(timer->control & TIMER_CONTROL_ENABLE))
+                continue;
+
+            if (i > 0 &&
+                (timer->control & TIMER_CONTROL_CASCADE))
+                continue;
+
+            u32 shift = timer_shifts[timer->control & TIMER_CONTROL_PRESCALER_MASK];
+            timer->accumulator += step;
+            u32 ticks = timer->accumulator >> shift;
+            timer->accumulator &= (1u << shift) - 1;
+
+            if (ticks)
+                timer_increment(i, ticks);
+        }
+
+        cycles -= step;
     }
 }
 
