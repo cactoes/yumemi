@@ -166,6 +166,12 @@ typedef struct __cpu {
     bool bios_hle_wait_active;
     u16 bios_hle_wait_mask;
 
+    struct __pipeline {
+        u32 opcode[2];
+        u32 address;
+        bool valid;
+        bool thumb;
+    } pipeline;
 } cpu_t;
 
 typedef struct __alu_shift_result {

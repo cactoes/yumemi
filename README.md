@@ -42,7 +42,7 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | arm         | Success |
 | bios        | Success |
 | memory      | Success |
-| nes         | Fail (001) |
+| nes         | Success |
 | ppu         | Success |
 | flash64     | Success |
 | flash128    | Success |

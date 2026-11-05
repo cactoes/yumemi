@@ -69,6 +69,19 @@ bool is_thumb_mode() {
 }
 
 static
+void cpu_pipeline_invalidate() {
+    get_cpu()->pipeline.valid = false;
+}
+
+static
+u32 cpu_pipeline_read(u32 address, bool thumb) {
+    if (thumb)
+        return (u32)mbus_read16(address, MBUS_DEFAULT);
+
+    return mbus_read32(address, MBUS_DEFAULT);
+}
+
+static
 bool irq_should_fire() {
     cpu_t* cpu = get_cpu();
 
@@ -166,6 +179,8 @@ static
 void cpu_enter_irq() {
     cpu_t* cpu = get_cpu();
 
+    cpu_pipeline_invalidate();
+
     u32 old_cpsr = cpu->cpsr;
     u32 return_addr = cpu->pc + 4;
     u32 irq_bank = cpu_mode_to_bank(PSR_MODE_IRQ);
@@ -201,6 +216,7 @@ static
 void cpu_leave_irq_hle() {
     cpu_t* cpu = get_cpu();
 
+    cpu_pipeline_invalidate();
     mbus_set_bios_open_bus(0xe55eC002u);
 
     cpu->r[0] = mbus_read32(cpu->sp + 0, MBUS_DEFAULT);
@@ -223,8 +239,8 @@ void cpu_leave_irq_hle() {
 static
 void cpu_set_pc(u32 target) {
     cpu_t* cpu = get_cpu();
+    cpu_pipeline_invalidate();
     cpu->pc = target;
-    mbus_add_cycles_from_address(target, is_thumb_mode() ? 2 : 4);
 }
 
 static
@@ -344,6 +360,7 @@ bool bios_hle_intr_wait(u16 mask, bool discard) {
         return true;
     }
 
+    cpu_pipeline_invalidate();
     cpu->pc -= is_thumb_mode() ? 2 : 4;
     io_cpu_halt();
     return true;
@@ -637,7 +654,7 @@ bool bios_hle_dispatch(u32 service) {
         }
         case SWI_BIOS_SQRT: {
             cpu->r[0] = bios_hle_sqrt_u32(cpu->r[0]);
-            mbus_set_bios_open_bus(0xE3A02004u);
+            mbus_set_bios_open_bus(0xe3a02004u);
             return true;
         }
         case SWI_CPU_SET:
@@ -673,6 +690,8 @@ bool cpu_swi(u32 service) {
 void cpu_reset(bool skip_bios) {
     cpu_t* cpu = get_cpu();
     memset(cpu, 0, sizeof(cpu_t));
+
+    cpu_pipeline_invalidate();
 
     cpu->skip_bios_mode = skip_bios;
 
@@ -2269,19 +2288,31 @@ static
 bool cpu_fetch() {
     cpu_t* cpu = get_cpu();
     u32 address = cpu->pc;
+    bool thumb = is_thumb_mode();
+    u32 width = thumb ? 2 : 4;
 
-    if (is_thumb_mode()) {
-        u16 instruction = mbus_read16(address, MBUS_DEFAULT);
-        cpu->pc = address + 2;
-
-        u32 bus_value = (u32)instruction;
-        mbus_set_cpu_open_bus(bus_value | (bus_value << 16));
-
-        return thumb_decode(instruction);
+    if (!cpu->pipeline.valid || cpu->pipeline.address != address || cpu->pipeline.thumb != thumb) {
+        cpu->pipeline.opcode[0] = cpu_pipeline_read(address, thumb);
+        cpu->pipeline.opcode[1] = cpu_pipeline_read(address + width, thumb);
+        cpu->pipeline.address = address;
+        cpu->pipeline.thumb = thumb;
+        cpu->pipeline.valid = true;
     }
 
-    u32 instruction = mbus_read32(address, MBUS_DEFAULT);
-    cpu->pc = address + 4;
+    u32 instruction = cpu->pipeline.opcode[0];
+    u32 upcoming = cpu_pipeline_read(address + width * 2u, thumb);
+
+    cpu->pipeline.opcode[0] = cpu->pipeline.opcode[1];
+    cpu->pipeline.opcode[1] = upcoming;
+    cpu->pipeline.address = address + width;
+
+    cpu->pc = address + width;
+
+    if (thumb) {
+        u32 bus_value = instruction & 0xffffu;
+        mbus_set_cpu_open_bus(bus_value | (bus_value << 16));
+        return thumb_decode((u16)instruction);
+    }
 
     mbus_set_cpu_open_bus(instruction);
 
