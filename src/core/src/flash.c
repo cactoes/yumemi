@@ -6,7 +6,7 @@
 static flash_t global_flash;
 
 static
-void flash_make_sav_path(const char* rom_path, char* out, size_t size) {
+void flash_make_sav_path(const char* rom_path, char* out, u64 size) {
     snprintf(out, size, "%s", rom_path);
 
     char* slash = strrchr(out, '/');
@@ -18,7 +18,7 @@ void flash_make_sav_path(const char* rom_path, char* out, size_t size) {
     if (dot && (!slash || dot > slash))
         *dot = '\0';
 
-    size_t len = strlen(out);
+    u64 len = strlen(out);
     if (len + 5 <= size)
         memcpy(out + len, ".sav", 5);
 }
@@ -29,7 +29,7 @@ bool flash_load() {
     if (!fp)
         return false;
 
-    size_t n = fread(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
+    u64 n = fread(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
     fclose(fp);
     return n > 0;
 }
@@ -42,7 +42,7 @@ bool flash_save() {
     if (!fp)
         return false;
 
-    size_t n = fwrite(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
+    u64 n = fwrite(flash_get_data(), 1, FLASH_CAPACITY_128K, fp);
     fclose(fp);
     if (n != FLASH_CAPACITY_128K)
         return false;

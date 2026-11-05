@@ -15,14 +15,14 @@ bool check_signature(u8* rom, u64 size) {
         return false;
 
     for (u64 offset = 0; offset <= size - length; offset++) {
-        if (memcmp(rom + offset, signature, (size_t)length) == 0)
+        if (memcmp(rom + offset, signature, (u64)length) == 0)
             return true;
     }
     return false;
 }
 
 static
-void eeprom_make_sav_path(const char* rom_path, char* out, size_t size) {
+void eeprom_make_sav_path(const char* rom_path, char* out, u64 size) {
     snprintf(out, size, "%s", rom_path);
 
     char* slash = strrchr(out, '/');
@@ -34,14 +34,14 @@ void eeprom_make_sav_path(const char* rom_path, char* out, size_t size) {
     if (dot && (!slash || dot > slash))
         *dot = '\0';
 
-    size_t len = strlen(out);
+    u64 len = strlen(out);
     if (len + 5 <= size)
         memcpy(out + len, ".sav", 5);
 }
 
 static
 bool eeprom_load() {
-    FILE* fp = fopen(global_eeprom.path, "rb");
+    FILE* fp = fopen(global_eeprom.sav_path, "rb");
     if (!fp) {
         global_eeprom.persistence_allowed = false;
         return false;
@@ -66,8 +66,8 @@ bool eeprom_load() {
         return false;
     }
 
-    size_t n = fread(global_eeprom.data, 1, (size_t)size, fp);
-    bool okay = n == (size_t)size && !ferror(fp);
+    u64 n = fread(global_eeprom.data, 1, (u64)size, fp);
+    bool okay = n == (u64)size && !ferror(fp);
     fclose(fp);
 
     if (!okay) {
@@ -131,8 +131,8 @@ void eeprom_reset(const char* rom_path, u8* rom, u64 rom_size) {
     if (!global_eeprom.enabled)
         return;
 
-    eeprom_make_sav_path(rom_path, global_eeprom.path, EEPROM_MAX_PATH);
-    printf("eeprom save path: %s\n", global_eeprom.path);
+    eeprom_make_sav_path(rom_path, global_eeprom.sav_path, EEPROM_MAX_PATH);
+    printf("eeprom save path: %s\n", global_eeprom.sav_path);
     global_eeprom.persistence_allowed = true;
     eeprom_load();
 }
@@ -227,20 +227,20 @@ bool eeprom_save() {
         return false;
 
     char tmp[512];
-    snprintf(tmp, sizeof(tmp), "%s.tmp", global_eeprom.path);
+    snprintf(tmp, sizeof(tmp), "%s.tmp", global_eeprom.sav_path);
 
     FILE* fp = fopen(tmp, "wb");
     if (!fp)
         return false;
 
-    size_t n = fwrite(global_eeprom.data, 1, global_eeprom.size, fp);
+    u64 n = fwrite(global_eeprom.data, 1, global_eeprom.size, fp);
     fclose(fp);
     if (n != global_eeprom.size)
         return false;
 
-    remove(global_eeprom.path);
+    remove(global_eeprom.sav_path);
 
-    if (rename(tmp, global_eeprom.path) == 0) {
+    if (rename(tmp, global_eeprom.sav_path) == 0) {
         global_eeprom.dirty = false;
         return true;
     }

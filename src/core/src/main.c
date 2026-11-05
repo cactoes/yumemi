@@ -17,6 +17,7 @@
 #include "wtime.h"
 #include "wwindow.h"
 #include "eeprom.h"
+#include "sram.h"
 
 static u32 rom_load_status = ROM_OK;
 static mtx_t rom_mutex;
@@ -40,7 +41,9 @@ u32 load_rom(const char* path) {
     eeprom_reset(path, rom_data, rom_size);
     dma_reset();
     io_reset();
-    flash_reset(path);
+    sram_reset(path, rom_data, rom_size);
+    if (!sram_is_enabled())
+        flash_reset(path);
     timer_reset();
     ppu_reset();
     cpu_reset(true);

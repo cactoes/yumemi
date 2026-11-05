@@ -8,6 +8,7 @@
 #include "gba_io.h"
 #include "timer.h"
 #include "eeprom.h"
+#include "sram.h"
 
 static memory_bus_t global_memory_bus;
 static const u8 non_seq_waitstates[4] = { 4, 3, 2, 8 };
@@ -182,6 +183,21 @@ void memory_bus_reset(u8* rom, u64 size) {
     region_base[MEMORY_BUS_REGION_VRAM] = mbus->ram.video;
 }
 
+static
+u8 mbus_save_read8(u32 address, u8 flags) {
+    if (sram_is_enabled())
+        return sram_read8(address, flags);
+    return flash_read8(address, flags);
+}
+
+static
+void mbus_save_write8(u32 address, u8 value, u8 flags) {
+    if (sram_is_enabled())
+        sram_write8(address, value, flags);
+    else
+        flash_write8(address, value, flags);
+}
+
 u32 mbus_read32(u32 address, u8 flags) {
     address &= ~3u;
 
@@ -207,7 +223,7 @@ u32 mbus_read32(u32 address, u8 flags) {
         return mbus_rom_read(address, 4);
 
     if (is_flash_region_or_mirror(region))
-        return (u32)flash_read8(address, flags) * 0x01010101u;
+        return (u32)mbus_save_read8(address, flags) * 0x01010101u;
 
     const u8 *p = memory_address_to_ram(address);
     if (!p)
@@ -243,7 +259,7 @@ u16 mbus_read16(u32 address, u8 flags) {
         return (u16)mbus_rom_read(address, 2);
 
     if (is_flash_region_or_mirror(region))
-        return (u16)((u32)flash_read8(address, flags) * 0x0101u);
+        return (u16)((u16)mbus_save_read8(address, flags) * 0x0101u);
 
     const u8 *p = memory_address_to_ram(address);
     if (!p)
@@ -274,7 +290,7 @@ u8 mbus_read8(u32 address, u8 flags) {
         return (u8)mbus_rom_read(address, 1);
 
     if (is_flash_region_or_mirror(region))
-        return flash_read8(address, flags);
+        return mbus_save_read8(address, flags);
 
     const u8 *p = memory_address_to_ram(address);
     if (!p)
@@ -291,7 +307,7 @@ void mbus_write32(u32 address, u32 value, u8 flags) {
 
     if (is_flash_region_or_mirror(region)) {
         u8 byte = (u8)(value >> ((address & 3u) * 8u));
-        flash_write8(address, byte, flags);
+        mbus_save_write8(address, byte, flags);
         return;
     }
 
@@ -320,7 +336,7 @@ void mbus_write16(u32 address, u16 value, u8 flags) {
 
     if (is_flash_region_or_mirror(region)) {
         u8 byte = (u8)(value >> ((address & 1u) * 8u));
-        flash_write8(address, byte, flags);
+        mbus_save_write8(address, byte, flags);
         return;
     }
 
@@ -367,7 +383,7 @@ void mbus_write8(u32 address, u8 value, u8 flags) {
         return;
 
     if (is_flash_region_or_mirror(region)) {
-        flash_write8(address, value, flags);
+        mbus_save_write8(address, value, flags);
         return;
     }
 

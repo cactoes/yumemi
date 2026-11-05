@@ -43,11 +43,11 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | bios        | Fail (missing at least HLE 0x8) |
 | memory      | Success |
 | nes         | Fail (001) |
-| ppu         | All Success |
+| ppu         | Success |
 | flash64     | Success |
 | flash128    | Success |
 | (Save) none | Success |
-| sram        | Fail (002) |
+| sram        | Success |
 | thumb       | Success |
 | unsafe      | Fail (001) |
 

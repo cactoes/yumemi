@@ -9,6 +9,7 @@
 #include "wtime.h"
 #include "wwindow.h"
 #include "eeprom.h"
+#include "sram.h"
 
 static Texture2D texture;
 static u32 global_width, global_height;
@@ -146,34 +147,48 @@ void render_update_events() {
     render_handle_events();
 }
 
-void render_handle_frame() {
-    if (!ppu_take_frame_ready())
-        return;
-
-    // static u64 last_print = 0;
-    // static u32 frames = 0;
-    // frames++;
-    // u64 t = time_now_ns();
-    // if (t - last_print >= 1000000000) {
-    //     printf("emulated fps: %u\n", frames);
-    //     frames = 0;
-    //     last_print = t;
-    // }
-
-    render_update_events();
-
+void render_update_saves() {
     static u32 save_dirty_counter = 0;
-    bool dirty = eeprom_enabled() ? eeprom_is_dirty() : flash_is_dirty();
+
+    bool use_eeprom = eeprom_enabled();
+    bool use_sram = !use_eeprom && sram_is_enabled();
+
+    bool dirty;
+    if (use_eeprom)
+        dirty = eeprom_is_dirty();
+    else if (use_sram)
+        dirty = sram_is_dirty();
+    else
+        dirty = flash_is_dirty();
+
     if (dirty) {
         if (++save_dirty_counter >= 60u) {
-            bool okay = eeprom_enabled() ? eeprom_save() : flash_save();
-            if (okay && !eeprom_enabled())
-                flash_mark_clean();
+            bool okay;
+
+            if (use_eeprom) {
+                okay = eeprom_save();
+            } else if (use_sram) {
+                okay = sram_save();
+            } else {
+                okay = flash_save();
+                if (okay)
+                    flash_mark_clean();
+            }
+
             save_dirty_counter = 0;
         }
     } else {
         save_dirty_counter = 0;
     }
+}
+
+void render_handle_frame() {
+    if (!ppu_take_frame_ready())
+        return;
+
+    render_update_events();
+
+    render_update_saves();
 
     frame_time_t* ft = &frame_time;
 

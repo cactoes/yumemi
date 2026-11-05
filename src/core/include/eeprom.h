@@ -35,7 +35,7 @@ typedef struct __eeprom {
     u8 command[EEPROM_MAX_COMMAND_BITS];
     u8 response[8];
     u8 data[EEPROM_LARGE_SIZE];
-    char path[EEPROM_MAX_PATH];
+    char sav_path[EEPROM_MAX_PATH];
 } eeprom_t;
 
 void eeprom_reset(const char* rom_path, u8* rom, u64 rom_size);
