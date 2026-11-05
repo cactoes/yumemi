@@ -7,6 +7,7 @@
 #include "flash.h"
 #include "gba_io.h"
 #include "timer.h"
+#include "eeprom.h"
 
 static memory_bus_t global_memory_bus;
 static const u8 non_seq_waitstates[4] = { 4, 3, 2, 8 };
@@ -235,6 +236,9 @@ u16 mbus_read16(u32 address, u8 flags) {
         return (u16)mbus_open_bus_read(address, 2, MBUS_OPEN_BUS_BIOS);
     }
 
+    if (is_eeprom_address(address))
+        return eeprom_read16(flags);
+
     if (is_rom_region_or_mirror(region))
         return (u16)mbus_rom_read(address, 2);
 
@@ -322,6 +326,11 @@ void mbus_write16(u32 address, u16 value, u8 flags) {
 
     if (region == MEMORY_BUS_REGION_BIOS)
         return;
+
+    if (is_eeprom_address(address)) {
+        eeprom_write16(value, flags);
+        return;
+    }
 
     if (is_rom_region_or_mirror(region))
         return;
@@ -483,6 +492,35 @@ void mbus_reset_ram(u32 flags) {
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_OAM))
         memset(global_memory_bus.ram.oam, 0, MEMORY_BUS_OAM_SIZE);
 
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_SERIAL)) {
+        io_write16(0x128, 0, IO_DEFAULT);
+        io_write16(0x134, 0x8000, IO_DEFAULT);
+        io_write16(0x12a, 0, IO_DEFAULT);
+        io_write16(0x140, 0, IO_DEFAULT);
+        io_write32(0x150, 0, IO_DEFAULT);
+        io_write32(0x154, 0, IO_DEFAULT);
+    }
+
+    if (MASK_ANY_SET(flags, MEM_RESET_RAM_SOUND)) {
+        io_write16(0x084, 0, IO_DEFAULT);
+        io_write16(0x060, 0, IO_DEFAULT);
+        io_write16(0x062, 0, IO_DEFAULT);
+        io_write16(0x064, 0, IO_DEFAULT);
+        io_write16(0x068, 0, IO_DEFAULT);
+        io_write16(0x06c, 0, IO_DEFAULT);
+        io_write16(0x070, 0, IO_DEFAULT);
+        io_write16(0x072, 0, IO_DEFAULT);
+        io_write16(0x074, 0, IO_DEFAULT);
+        io_write16(0x078, 0, IO_DEFAULT);
+        io_write16(0x07c, 0, IO_DEFAULT);
+        io_write16(0x080, 0, IO_DEFAULT);
+        io_write16(0x082, 0, IO_DEFAULT);
+        io_write16(0x088, 0x0200, IO_DEFAULT);
+
+        for (u32 offset = 0x090; offset < 0x0a0; offset += 2)
+            io_write16(offset, 0, IO_DEFAULT);
+    }
+
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_IO)) {
         io_write16(0x208, 0, IO_DEFAULT);
 
@@ -494,7 +532,4 @@ void mbus_reset_ram(u32 flags) {
         io_write16(0x202, 0xffff, IO_DEFAULT);
         io_write16(0x204, 0, IO_DEFAULT);
     }
-
-    io_write16(0x114, 0x8000, IO_DEFAULT);
-    mbus_write8(0x04000120, 0x07, MBUS_DEFAULT);
 }

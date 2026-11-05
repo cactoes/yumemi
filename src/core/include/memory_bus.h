@@ -47,7 +47,9 @@
 #define MEM_RESET_RAM_PALETTE   (1u << 2)
 #define MEM_RESET_RAM_VRAM      (1u << 3)
 #define MEM_RESET_RAM_OAM       (1u << 4)
-#define MEM_RESET_RAM_IO        ((1u << 5) | (1u << 6) | (1u << 7))
+#define MEM_RESET_RAM_SERIAL    (1u << 5)
+#define MEM_RESET_RAM_SOUND     (1u << 6)
+#define MEM_RESET_RAM_IO        (1u << 7)
 
 #include "typedef.h"
 
