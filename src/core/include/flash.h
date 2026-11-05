@@ -15,10 +15,6 @@
 #define FLASH_MANUF_ID  0xC2
 #define FLASH_DEVICE_ID 0x09
 
-#define FLASH_DEFAULT        (0u)
-#define FLASH_NOCOUNT        (1u << 0)
-#define FLASH_NOSIDE_EFFECT  (1u << 1)
-
 #define FLASH_PATH_MAX 512
 
 #include "typedef.h"

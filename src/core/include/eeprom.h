@@ -15,10 +15,6 @@
 
 #define EEPROM_PROGRAM_CYCLES   115000u
 
-#define EEPROM_DEFAULT        (0u)
-#define EEPROM_NOCOUNT        (1u << 0)
-#define EEPROM_NOSIDE_EFFECT  (1u << 1)
-
 #include "typedef.h"
 
 typedef struct __eeprom {

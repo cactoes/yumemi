@@ -76,9 +76,9 @@ void cpu_pipeline_invalidate() {
 static
 u32 cpu_pipeline_read(u32 address, bool thumb) {
     if (thumb)
-        return (u32)mbus_read16(address, MBUS_DEFAULT);
+        return (u32)mbus_read16(address, MEM_ACCESS_DEFAULT);
 
-    return mbus_read32(address, MBUS_DEFAULT);
+    return mbus_read32(address, MEM_ACCESS_DEFAULT);
 }
 
 static
@@ -88,11 +88,11 @@ bool irq_should_fire() {
     if (cpu->cpsr & PSR_I)
         return false;
 
-    if (!(io_read16(IO_IME, IO_NOCOUNT | IO_NOSIDE_EFFECT) & 1))
+    if (!(io_read16(IO_IME, MEM_ACCESS_NOCOUNT | MEM_ACCESS_NOSIDE_EFFECT) & 1))
         return false;
 
-    u16 ie = io_read16(IO_IE, IO_NOCOUNT | IO_NOSIDE_EFFECT);
-    u16 iflags = io_read16(IO_IF, IO_NOCOUNT | IO_NOSIDE_EFFECT);
+    u16 ie = io_read16(IO_IE, MEM_ACCESS_NOCOUNT | MEM_ACCESS_NOSIDE_EFFECT);
+    u16 iflags = io_read16(IO_IF, MEM_ACCESS_NOCOUNT | MEM_ACCESS_NOSIDE_EFFECT);
 
     return (ie & iflags) != 0;
 }
@@ -203,14 +203,14 @@ void cpu_enter_irq() {
     mbus_set_bios_open_bus(0xe25ef004u);
 
     cpu->sp -= 24;
-    mbus_write32(cpu->sp + 0, cpu->r[0], MBUS_DEFAULT);
-    mbus_write32(cpu->sp + 4, cpu->r[1], MBUS_DEFAULT);
-    mbus_write32(cpu->sp + 8, cpu->r[2], MBUS_DEFAULT);
-    mbus_write32(cpu->sp + 12, cpu->r[3], MBUS_DEFAULT);
-    mbus_write32(cpu->sp + 16, cpu->r[12], MBUS_DEFAULT);
-    mbus_write32(cpu->sp + 20, cpu->lr, MBUS_DEFAULT);
+    mbus_write32(cpu->sp + 0, cpu->r[0], MEM_ACCESS_DEFAULT);
+    mbus_write32(cpu->sp + 4, cpu->r[1], MEM_ACCESS_DEFAULT);
+    mbus_write32(cpu->sp + 8, cpu->r[2], MEM_ACCESS_DEFAULT);
+    mbus_write32(cpu->sp + 12, cpu->r[3], MEM_ACCESS_DEFAULT);
+    mbus_write32(cpu->sp + 16, cpu->r[12], MEM_ACCESS_DEFAULT);
+    mbus_write32(cpu->sp + 20, cpu->lr, MEM_ACCESS_DEFAULT);
 
-    u32 handler = mbus_read32(IRQ_USER_HANDLER, MBUS_DEFAULT);
+    u32 handler = mbus_read32(IRQ_USER_HANDLER, MEM_ACCESS_DEFAULT);
 
     cpu->r[0] = 0x04000000u;
     cpu->lr = BIOS_IRQ_RETURN;
@@ -224,12 +224,12 @@ void cpu_leave_irq_hle() {
     cpu_pipeline_invalidate();
     mbus_set_bios_open_bus(0xe55eC002u);
 
-    cpu->r[0] = mbus_read32(cpu->sp + 0, MBUS_DEFAULT);
-    cpu->r[1] = mbus_read32(cpu->sp + 4, MBUS_DEFAULT);
-    cpu->r[2] = mbus_read32(cpu->sp + 8, MBUS_DEFAULT);
-    cpu->r[3] = mbus_read32(cpu->sp + 12, MBUS_DEFAULT);
-    cpu->r[12] = mbus_read32(cpu->sp + 16, MBUS_DEFAULT);
-    u32 saved_lr = mbus_read32(cpu->sp + 20, MBUS_DEFAULT);
+    cpu->r[0] = mbus_read32(cpu->sp + 0, MEM_ACCESS_DEFAULT);
+    cpu->r[1] = mbus_read32(cpu->sp + 4, MEM_ACCESS_DEFAULT);
+    cpu->r[2] = mbus_read32(cpu->sp + 8, MEM_ACCESS_DEFAULT);
+    cpu->r[3] = mbus_read32(cpu->sp + 12, MEM_ACCESS_DEFAULT);
+    cpu->r[12] = mbus_read32(cpu->sp + 16, MEM_ACCESS_DEFAULT);
+    u32 saved_lr = mbus_read32(cpu->sp + 20, MEM_ACCESS_DEFAULT);
     cpu->sp += 24;
 
     u32 restored_cpsr = cpu->spsr[cpu_mode_to_bank(PSR_MODE_IRQ)];
@@ -298,7 +298,7 @@ bool bios_hle_soft_reset() {
     printf("[BIOS HLE] soft reset triggerd\n");
 
     cpu_t* cpu = get_cpu();
-    u8 boot_from_ram = mbus_read8(BIOS_HLE_RESET_FLAG_ADDRESS, MBUS_DEFAULT);
+    u8 boot_from_ram = mbus_read8(BIOS_HLE_RESET_FLAG_ADDRESS, MEM_ACCESS_DEFAULT);
 
     cpu->bios_hle_wait_active = false;
     cpu->bios_hle_wait_mask = 0;
@@ -321,7 +321,7 @@ bool bios_hle_soft_reset() {
         cpu->r[reg] = 0;
 
     for (u32 offset = 0; offset < BIOS_HLE_RESET_RAM_SIZE; offset++)
-        mbus_write8(BIOS_HLE_RESET_RAM_START + offset, 0, MBUS_DEFAULT);
+        mbus_write8(BIOS_HLE_RESET_RAM_START + offset, 0, MEM_ACCESS_DEFAULT);
 
     cpu->cpsr = PSR_MODE_SYSTEM;
     cpu_set_pc(boot_from_ram ? BIOS_HLE_RAM_ENTRY : BIOS_HLE_ROM_ENTRY);
@@ -343,23 +343,23 @@ bool bios_hle_halt() {
 static
 bool bios_hle_intr_wait(u16 mask, bool discard) {
     cpu_t* cpu = get_cpu();
-    u16 flags = mbus_read16(BIOS_HLE_IRQ_FLAGS_ADDRESS, MBUS_DEFAULT);
+    u16 flags = mbus_read16(BIOS_HLE_IRQ_FLAGS_ADDRESS, MEM_ACCESS_DEFAULT);
 
     if (!cpu->bios_hle_wait_active) {
         cpu->bios_hle_wait_mask = mask;
         cpu->bios_hle_wait_active = true;
         if (discard) {
             MASK_CLEAR(flags, mask);
-            mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MBUS_DEFAULT);
+            mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MEM_ACCESS_DEFAULT);
         }
     }
 
     mask = cpu->bios_hle_wait_mask;
-    io_write16(IO_IME, 1, IO_DEFAULT);
+    io_write16(IO_IME, 1, MEM_ACCESS_DEFAULT);
 
     if (MASK_ANY_SET(flags, mask)) {
         MASK_CLEAR(flags, mask);
-        mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MBUS_DEFAULT);
+        mbus_write16(BIOS_HLE_IRQ_FLAGS_ADDRESS, flags, MEM_ACCESS_DEFAULT);
         cpu->bios_hle_wait_mask = 0;
         cpu->bios_hle_wait_active = false;
         return true;
@@ -377,18 +377,18 @@ void bios_hle_copy_memory(u32 src, u32 dst, u32 count, bool word, bool fill) {
         return;
 
     if (word) {
-        u32 fill_value = fill ? mbus_read32(src, MBUS_DEFAULT) : 0u;
+        u32 fill_value = fill ? mbus_read32(src, MEM_ACCESS_DEFAULT) : 0u;
         for (u32 index = 0u; index < count; index++) {
-            u32 value = fill ? fill_value : mbus_read32(src, MBUS_DEFAULT);
-            mbus_write32(dst, value, MBUS_DEFAULT);
+            u32 value = fill ? fill_value : mbus_read32(src, MEM_ACCESS_DEFAULT);
+            mbus_write32(dst, value, MEM_ACCESS_DEFAULT);
             src += 4u;
             dst += 4u;
         }
     } else {
-        u16 fill_value = fill ? mbus_read16(src, MBUS_DEFAULT) : 0u;
+        u16 fill_value = fill ? mbus_read16(src, MEM_ACCESS_DEFAULT) : 0u;
         for (u32 index = 0u; index < count; index++) {
-            u16 value = fill ? fill_value : mbus_read16(src, MBUS_DEFAULT);
-            mbus_write16(dst, value, MBUS_DEFAULT);
+            u16 value = fill ? fill_value : mbus_read16(src, MEM_ACCESS_DEFAULT);
+            mbus_write16(dst, value, MEM_ACCESS_DEFAULT);
             src += 2u;
             dst += 2u;
         }
@@ -421,7 +421,7 @@ int32_t bios_hle_sin_approx(u32 angle) {
 
 static
 int32_t bios_hle_read_s16(u32 address) {
-    u32 value = mbus_read16(address, MBUS_DEFAULT);
+    u32 value = mbus_read16(address, MEM_ACCESS_DEFAULT);
     return (int32_t)(value & 0x7fffu) - (int32_t)(value & 0x8000u);
 }
 
@@ -442,7 +442,7 @@ bool bios_hle_obj_affine_set() {
     for (u32 index = 0; index < count; index++) {
         int32_t sx = bios_hle_read_s16(src);
         int32_t sy = bios_hle_read_s16(src + 2u);
-        u32 angle = mbus_read16(src + 4u, MBUS_DEFAULT) >> 8;
+        u32 angle = mbus_read16(src + 4u, MEM_ACCESS_DEFAULT) >> 8;
         src += 8;
 
         int32_t sine = bios_hle_sin_approx(angle);
@@ -455,7 +455,7 @@ bool bios_hle_obj_affine_set() {
         };
 
         for (u32 component = 0; component < 4; component++) {
-            mbus_write16(dst, (u16)matrix[component], MBUS_DEFAULT);
+            mbus_write16(dst, (u16)matrix[component], MEM_ACCESS_DEFAULT);
             dst += stride;
         }
     }
@@ -471,13 +471,13 @@ bool bios_hle_bg_affine_set() {
     u32 count = cpu->r[2];
 
     for (u32 index = 0; index < count; index++) {
-        int32_t ox = (int32_t)mbus_read32(src, MBUS_DEFAULT);
-        int32_t oy = (int32_t)mbus_read32(src + 4, MBUS_DEFAULT);
+        int32_t ox = (int32_t)mbus_read32(src, MEM_ACCESS_DEFAULT);
+        int32_t oy = (int32_t)mbus_read32(src + 4, MEM_ACCESS_DEFAULT);
         int32_t cx = bios_hle_read_s16(src + 8);
         int32_t cy = bios_hle_read_s16(src + 10);
         int32_t sx = bios_hle_read_s16(src + 12);
         int32_t sy = bios_hle_read_s16(src + 14);
-        u32 angle = mbus_read16(src + 16, MBUS_DEFAULT) >> 8;
+        u32 angle = mbus_read16(src + 16, MEM_ACCESS_DEFAULT) >> 8;
         src += 20;
 
         int32_t sine = bios_hle_sin_approx(angle);
@@ -491,12 +491,12 @@ bool bios_hle_bg_affine_set() {
         int32_t dx = ox - (pa * cx + pb * cy);
         int32_t dy = oy - (pc * cx + pd * cy);
 
-        mbus_write16(dst, (u16)pa, MBUS_DEFAULT);
-        mbus_write16(dst + 2, (u16)pb, MBUS_DEFAULT);
-        mbus_write16(dst + 4, (u16)pc, MBUS_DEFAULT);
-        mbus_write16(dst + 6, (u16)pd, MBUS_DEFAULT);
-        mbus_write32(dst + 8, (u32)dx, MBUS_DEFAULT);
-        mbus_write32(dst + 12, (u32)dy, MBUS_DEFAULT);
+        mbus_write16(dst, (u16)pa, MEM_ACCESS_DEFAULT);
+        mbus_write16(dst + 2, (u16)pb, MEM_ACCESS_DEFAULT);
+        mbus_write16(dst + 4, (u16)pc, MEM_ACCESS_DEFAULT);
+        mbus_write16(dst + 6, (u16)pd, MEM_ACCESS_DEFAULT);
+        mbus_write32(dst + 8, (u32)dx, MEM_ACCESS_DEFAULT);
+        mbus_write32(dst + 12, (u32)dy, MEM_ACCESS_DEFAULT);
         dst += 16;
     }
 
@@ -507,18 +507,18 @@ static
 bool bios_hle_lz77_decode(u32 src, u8* out, u32 size) {
     u32 written = 0u;
     while (written < size) {
-        u8 flags = mbus_read8(src++, MBUS_DEFAULT);
+        u8 flags = mbus_read8(src++, MEM_ACCESS_DEFAULT);
         for (u32 bit = 0; bit < 8 && written < size; bit++) {
             bool compressed = MASK_ANY_SET(flags, 0x80u);
             flags = (u8)(flags << 1);
 
             if (!compressed) {
-                out[written++] = mbus_read8(src++, MBUS_DEFAULT);
+                out[written++] = mbus_read8(src++, MEM_ACCESS_DEFAULT);
                 continue;
             }
 
-            u8 first = mbus_read8(src++, MBUS_DEFAULT);
-            u8 second = mbus_read8(src++, MBUS_DEFAULT);
+            u8 first = mbus_read8(src++, MEM_ACCESS_DEFAULT);
+            u8 second = mbus_read8(src++, MEM_ACCESS_DEFAULT);
             u32 length = (first >> 4) + 3;
             u32 distance = (((u32)first & 0x0fu) << 8) | second;
             distance += 1;
@@ -539,7 +539,7 @@ static
 void bios_hle_write_decompressed(u32 dst, const u8* data, u32 size, bool halfword) {
     if (!halfword) {
         for (u32 index = 0u; index < size; index++)
-            mbus_write8(dst + index, data[index], MBUS_DEFAULT);
+            mbus_write8(dst + index, data[index], MEM_ACCESS_DEFAULT);
 
         return;
     }
@@ -550,7 +550,7 @@ void bios_hle_write_decompressed(u32 dst, const u8* data, u32 size, bool halfwor
         if (index + 1u < size)
             value |= (u16)((u16)data[index + 1u] << 8);
 
-        mbus_write16(dst + index, value, MBUS_DEFAULT);
+        mbus_write16(dst + index, value, MEM_ACCESS_DEFAULT);
     }
 }
 
@@ -559,7 +559,7 @@ bool bios_hle_lz77_uncompress(bool vram) {
     cpu_t* cpu = get_cpu();
     u32 src = cpu->r[0];
     u32 dst = cpu->r[1];
-    u32 header = mbus_read32(src, MBUS_DEFAULT);
+    u32 header = mbus_read32(src, MEM_ACCESS_DEFAULT);
     u32 size = header >> 8;
 
     if ((header & 0xf0u) != 0x10u)
@@ -719,7 +719,7 @@ void cpu_reset(bool skip_bios) {
 
 static
 u32 cpu_load_word_rotated(u32 address) {
-    u32 word = mbus_read32(address & ~3u, MBUS_DEFAULT);
+    u32 word = mbus_read32(address & ~3u, MEM_ACCESS_DEFAULT);
     return ror(word, (address & 3u) * 8);
 }
 
@@ -1077,7 +1077,7 @@ bool arm_block_data_transfer(u32 instruction) {
         }
 
         if (load) {
-            u32 value = mbus_read32(address, MBUS_DEFAULT);
+            u32 value = mbus_read32(address, MEM_ACCESS_DEFAULT);
 
             if (reg == 15) {
                 pc_value = value;
@@ -1095,7 +1095,7 @@ bool arm_block_data_transfer(u32 instruction) {
                 value = *slot;
             }
 
-            mbus_write32(address, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MEM_ACCESS_DEFAULT);
         }
 
         address += 4;
@@ -1221,11 +1221,11 @@ bool arm_swap(u32 instruction) {
     u32 loaded;
 
     if (byte) {
-        loaded = (u32)mbus_read8(address, MBUS_DEFAULT);
-        mbus_write8(address, (u8)source, MBUS_DEFAULT);
+        loaded = (u32)mbus_read8(address, MEM_ACCESS_DEFAULT);
+        mbus_write8(address, (u8)source, MEM_ACCESS_DEFAULT);
     } else {
         loaded = cpu_load_word_rotated(address);
-        mbus_write32(address, source, MBUS_DEFAULT);
+        mbus_write32(address, source, MEM_ACCESS_DEFAULT);
     }
 
     cpu->r[rd] = loaded;
@@ -1259,7 +1259,7 @@ bool arm_halfword_data_transfer(u32 instruction) {
 
     if (!load) {
         u32 value = arm_read_store_reg(rd);
-        mbus_write16(address, (u16)value, MBUS_DEFAULT);
+        mbus_write16(address, (u16)value, MEM_ACCESS_DEFAULT);
 
         if (do_writeback)
             cpu->r[rn] = adjusted_base;
@@ -1271,15 +1271,15 @@ bool arm_halfword_data_transfer(u32 instruction) {
 
     if (sh == 1) {
         u32 aligned = address;
-        value = (u32)mbus_read16(aligned & ~1u, MBUS_DEFAULT);
+        value = (u32)mbus_read16(aligned & ~1u, MEM_ACCESS_DEFAULT);
         if (odd)
             value = ror(value, 8u);
     } else if (sh == 2 || (sh == 3 && odd)) {
-        value = (u32)mbus_read8(address, MBUS_DEFAULT);
+        value = (u32)mbus_read8(address, MEM_ACCESS_DEFAULT);
         if (MASK_ANY_SET(value, 0x80u))
             MASK_SET(value, 0xffffff00u);
     } else {
-        value = (u32)mbus_read16(address, MBUS_DEFAULT);
+        value = (u32)mbus_read16(address, MEM_ACCESS_DEFAULT);
         if (MASK_ANY_SET(value, 0x8000u))
             MASK_SET(value, 0xffff0000u);
     }
@@ -1448,7 +1448,7 @@ bool arm_single_data_transfer(u32 instruction) {
     bool do_writeback = !pre || writeback;
 
     if (load) {
-        u32 value = byte ? (u32)mbus_read8(address, MBUS_DEFAULT) : cpu_load_word_rotated(address);
+        u32 value = byte ? (u32)mbus_read8(address, MEM_ACCESS_DEFAULT) : cpu_load_word_rotated(address);
 
         if (do_writeback)
             cpu->r[rn] = adjusted_base;
@@ -1463,9 +1463,9 @@ bool arm_single_data_transfer(u32 instruction) {
         u32 value = arm_read_store_reg(rd);
 
         if (byte)
-            mbus_write8(address, (u8)value, MBUS_DEFAULT);
+            mbus_write8(address, (u8)value, MEM_ACCESS_DEFAULT);
         else
-            mbus_write32(address, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MEM_ACCESS_DEFAULT);
 
         if (do_writeback)
             cpu->r[rn] = adjusted_base;
@@ -1568,14 +1568,14 @@ static
 u32 thumb_load_halfword(u32 address) {
     bool odd = MASK_ANY_SET(address, 1u);
 
-    u32 value = (u32)mbus_read16(address & ~1u, MBUS_DEFAULT);
+    u32 value = (u32)mbus_read16(address & ~1u, MEM_ACCESS_DEFAULT);
 
     return odd ? ror(value, 8u) : value;
 }
 
 static
 u32 thumb_load_signed_byte(u32 address) {
-    u32 value = (u32)mbus_read8(address, MBUS_DEFAULT);
+    u32 value = (u32)mbus_read8(address, MEM_ACCESS_DEFAULT);
 
     if (MASK_ANY_SET(value, 0x80u))
         MASK_SET(value, 0xffffff00u);
@@ -1588,7 +1588,7 @@ u32 thumb_load_signed_halfword(u32 address) {
     if (MASK_ANY_SET(address, 1u))
         return thumb_load_signed_byte(address);
 
-    u32 value = (u32)mbus_read16(address, MBUS_DEFAULT);
+    u32 value = (u32)mbus_read16(address, MEM_ACCESS_DEFAULT);
 
     if (MASK_ANY_SET(value, 0x8000u))
         MASK_SET(value, 0xffff0000u);
@@ -1608,7 +1608,7 @@ bool thumb_transfer_register(u32 rd, u32 address, bool load, u32 type) {
                 value = cpu_load_word_rotated(address);
                 break;
             case THUMB_MEMORY_BYTE:
-                value = (u32)mbus_read8(address, MBUS_DEFAULT);
+                value = (u32)mbus_read8(address, MEM_ACCESS_DEFAULT);
                 break;
             case THUMB_MEMORY_HALFWORD:
                 value = thumb_load_halfword(address);
@@ -1633,13 +1633,13 @@ bool thumb_transfer_register(u32 rd, u32 address, bool load, u32 type) {
 
     switch (type) {
         case THUMB_MEMORY_WORD:
-            mbus_write32(address, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MEM_ACCESS_DEFAULT);
             break;
         case THUMB_MEMORY_BYTE:
-            mbus_write8(address, (u8)value, MBUS_DEFAULT);
+            mbus_write8(address, (u8)value, MEM_ACCESS_DEFAULT);
             break;
         case THUMB_MEMORY_HALFWORD:
-            mbus_write16(address, (u16)value, MBUS_DEFAULT);
+            mbus_write16(address, (u16)value, MEM_ACCESS_DEFAULT);
             break;
         default:
             return false;
@@ -2008,14 +2008,14 @@ bool thumb_push_pop(u16 instruction) {
         u32 address = (load ? base : base - 0x40);
 
         if (load) {
-            u32 target = mbus_read32(address, MBUS_DEFAULT);
+            u32 target = mbus_read32(address, MEM_ACCESS_DEFAULT);
 
             cpu->sp = base + 0x40;
 
             mbus_add_cycles(1);
             thumb_write_pc(target);
         } else {
-            mbus_write32(address, cpu_read_reg(15) + 2, MBUS_DEFAULT);
+            mbus_write32(address, cpu_read_reg(15) + 2, MEM_ACCESS_DEFAULT);
             cpu->sp = base - 0x40;
         }
 
@@ -2034,14 +2034,14 @@ bool thumb_push_pop(u16 instruction) {
             continue;
 
         if (load) {
-            u32 value = mbus_read32(address, MBUS_DEFAULT);
+            u32 value = mbus_read32(address, MEM_ACCESS_DEFAULT);
 
             if (reg == 15)
                 pc_value = value;
             else
                 cpu->r[reg] = value;
         } else {
-            mbus_write32(address, cpu_read_reg(reg), MBUS_DEFAULT);
+            mbus_write32(address, cpu_read_reg(reg), MEM_ACCESS_DEFAULT);
         }
 
         address += 4;
@@ -2073,14 +2073,14 @@ bool thumb_load_store_multiple(u16 instruction) {
 
     if (rlist == 0u) {
         if (load) {
-            u32 target = mbus_read32(address, MBUS_DEFAULT);
+            u32 target = mbus_read32(address, MEM_ACCESS_DEFAULT);
 
             cpu->r[rb] = base + 0x40;
 
             mbus_add_cycles(1);
             thumb_write_pc(target);
         } else {
-            mbus_write32(address, cpu_read_reg(15) + 2, MBUS_DEFAULT);
+            mbus_write32(address, cpu_read_reg(15) + 2, MEM_ACCESS_DEFAULT);
 
             cpu->r[rb] = base + 0x40;
         }
@@ -2097,14 +2097,14 @@ bool thumb_load_store_multiple(u16 instruction) {
             continue;
 
         if (load) {
-            cpu->r[reg] = mbus_read32(address, MBUS_DEFAULT);
+            cpu->r[reg] = mbus_read32(address, MEM_ACCESS_DEFAULT);
         } else {
             u32 value = cpu->r[reg];
 
             if (reg == rb && !base_first)
                 value = new_base;
 
-            mbus_write32(address, value, MBUS_DEFAULT);
+            mbus_write32(address, value, MEM_ACCESS_DEFAULT);
         }
 
         address += 4;

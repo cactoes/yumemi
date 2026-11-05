@@ -11,10 +11,6 @@
 #define SRAM_CAPACITY       (32 * 1024)
 #define SRAM_MAX_PATH       512
 
-#define SRAM_DEFAULT        (0u)
-#define SRAM_NOCOUNT        (1u << 0)
-#define SRAM_NOSIDE_EFFECT  (1u << 1)
-
 #include "typedef.h"
 
 typedef struct __sram {

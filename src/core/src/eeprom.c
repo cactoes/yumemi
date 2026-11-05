@@ -1,8 +1,8 @@
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include "memory_bus.h"
 #include "eeprom.h"
+#include "helper.h"
 
 static eeprom_t global_eeprom;
 
@@ -153,7 +153,7 @@ bool eeprom_is_dirty() {
 }
 
 void eeprom_write16(u16 value, u8 flags) {
-    if (!global_eeprom.enabled || (flags & EEPROM_NOSIDE_EFFECT) || global_eeprom.busy_cycles || global_eeprom.expected_bits == 0)
+    if (!global_eeprom.enabled || (flags & MEM_ACCESS_NOSIDE_EFFECT) || global_eeprom.busy_cycles || global_eeprom.expected_bits == 0)
         return;
 
     global_eeprom.command[global_eeprom.received_bits++] = (u8)(value & 1u);
@@ -176,7 +176,7 @@ u16 eeprom_read16(u8 flags) {
         value = (u16)((global_eeprom.response[bit >> 3] >> (7u - (bit & 7u))) & 1u);
     }
 
-    if (!(flags & MBUS_NOSIDE_EFFECT)) {
+    if (!(flags & MEM_ACCESS_NOSIDE_EFFECT)) {
         global_eeprom.read_position++;
         if (global_eeprom.read_position == 68) {
             global_eeprom.reading = false;

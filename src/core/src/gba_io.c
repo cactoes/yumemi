@@ -126,7 +126,7 @@ bool io_is_dma_control_high(u32 offset) {
 }
 
 void io_write8(u32 offset, u8 value, u8 flags) {
-    if (MASK_IS_SET(flags, IO_NOSIDE_EFFECT))
+    if (MASK_IS_SET(flags, MEM_ACCESS_NOSIDE_EFFECT))
         return;
 
     if (offset >= MEMORY_BUS_IO_SIZE)
@@ -197,7 +197,7 @@ void io_write8(u32 offset, u8 value, u8 flags) {
 }
 
 void io_write16(u32 offset, u16 value, u8 flags) {
-    if (MASK_IS_SET(flags, IO_NOSIDE_EFFECT))
+    if (MASK_IS_SET(flags, MEM_ACCESS_NOSIDE_EFFECT))
         return;
 
     if (io_is_timer(offset)) {

@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include <raylib.h>
 #include <threads.h>
 #undef bool
@@ -18,6 +18,7 @@
 #include "wwindow.h"
 #include "eeprom.h"
 #include "sram.h"
+#include "apu.h"
 
 static u32 rom_load_status = ROM_OK;
 static mtx_t rom_mutex;
@@ -46,6 +47,7 @@ u32 load_rom(const char* path) {
         flash_reset(path);
     timer_reset();
     ppu_reset();
+    apu_reset();
     cpu_reset(true);
 
     return ROM_OK;
@@ -169,6 +171,7 @@ int main(int argc, char** argv) {
 
         ppu_step(cycles);
         timer_step(cycles);
+        apu_step(cycles);
         eeprom_step(cycles);
 
         render_handle_frame();

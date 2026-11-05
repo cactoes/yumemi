@@ -76,7 +76,7 @@ u8 flash_read8(u32 address, u8 flags) {
 }
 
 void flash_write8(u32 address, u8 value, u8 flags) {
-    if (MASK_IS_SET(flags, FLASH_NOSIDE_EFFECT))
+    if (MASK_IS_SET(flags, MEM_ACCESS_NOSIDE_EFFECT))
         return;
 
     address &= 0xffff;

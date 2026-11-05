@@ -33,10 +33,6 @@
 #define IRQ_DMA(i)      (1u << (8 + (i)))
 #define IRQ_KEYPAD      (1u << 12)
 
-#define IO_DEFAULT        (0u)
-#define IO_NOCOUNT        (1u << 0)
-#define IO_NOSIDE_EFFECT  (1u << 1)
-
 #include "typedef.h"
 
 void io_reset();

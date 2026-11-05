@@ -4,6 +4,7 @@
 #include "memory_bus.h"
 #include "gba_io.h"
 #include "eeprom.h"
+#include "helper.h"
 
 // TODO @since 30/10/2026 -- 21:35
 // proper dma cycle counts
@@ -102,9 +103,9 @@ void dma_step(u32* cycles) {
         u32 destination_control = (control >> 5) & 3u;
 
         if (word)
-            mbus_write32(destination, mbus_read32(source, 0), MBUS_DEFAULT);
+            mbus_write32(destination, mbus_read32(source, 0), MEM_ACCESS_DEFAULT);
         else
-            mbus_write16(destination, mbus_read16(source, 0), MBUS_DEFAULT);
+            mbus_write16(destination, mbus_read16(source, 0), MEM_ACCESS_DEFAULT);
 
         if (!dma_ch->active) {
             *cycles = mbus_get_total_cycle_count(true);

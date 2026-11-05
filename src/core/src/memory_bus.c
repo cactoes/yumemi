@@ -215,7 +215,7 @@ void mbus_save_write8(u32 address, u8 value, u8 flags) {
 u32 mbus_read32(u32 address, u8 flags) {
     address &= ~3u;
 
-    if (!(MASK_IS_SET(flags, MBUS_NOCOUNT)))
+    if (!(MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT)))
         mbus_handle_access_cycles(address, 4);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -249,7 +249,7 @@ u32 mbus_read32(u32 address, u8 flags) {
 u16 mbus_read16(u32 address, u8 flags) {
     address &= ~1u;
 
-    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+    if (!MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT))
         mbus_handle_access_cycles(address, 2);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -283,7 +283,7 @@ u16 mbus_read16(u32 address, u8 flags) {
 }
 
 u8 mbus_read8(u32 address, u8 flags) {
-    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+    if (!MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT))
         mbus_handle_access_cycles(address, 1);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -314,7 +314,7 @@ u8 mbus_read8(u32 address, u8 flags) {
 }
 
 void mbus_write32(u32 address, u32 value, u8 flags) {
-    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+    if (!MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT))
         mbus_handle_access_cycles(address, 4);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -343,7 +343,7 @@ void mbus_write32(u32 address, u32 value, u8 flags) {
 }
 
 void mbus_write16(u32 address, u16 value, u8 flags) {
-    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+    if (!MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT))
         mbus_handle_access_cycles(address, 2);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -380,7 +380,7 @@ void mbus_write16(u32 address, u16 value, u8 flags) {
 }
 
 void mbus_write8(u32 address, u8 value, u8 flags) {
-    if (!MASK_IS_SET(flags, MBUS_NOCOUNT))
+    if (!MASK_IS_SET(flags, MEM_ACCESS_NOCOUNT))
         mbus_handle_access_cycles(address, 1);
 
     const u8 region = MEMORY_ADDRESS_TO_REGION(address);
@@ -463,52 +463,52 @@ u8* mbus_get_region(u8 region) {
 
 static
 void mbus_reset_io_display() {
-    io_write16(0x004, 0, IO_DEFAULT);
+    io_write16(0x004, 0, MEM_ACCESS_DEFAULT);
 
     for (u32 offset = 0x008; offset < 0x020; offset += 2)
-        io_write16(offset, 0, IO_DEFAULT);
+        io_write16(offset, 0, MEM_ACCESS_DEFAULT);
 
     for (u32 base = 0x020; base <= 0x030; base += 0x010) {
-        io_write16(base, 0x0100, IO_DEFAULT);
-        io_write16(base + 2, 0, IO_DEFAULT);
-        io_write16(base + 4, 0, IO_DEFAULT);
-        io_write16(base + 6, 0x0100, IO_DEFAULT);
+        io_write16(base, 0x0100, MEM_ACCESS_DEFAULT);
+        io_write16(base + 2, 0, MEM_ACCESS_DEFAULT);
+        io_write16(base + 4, 0, MEM_ACCESS_DEFAULT);
+        io_write16(base + 6, 0x0100, MEM_ACCESS_DEFAULT);
     }
 
     for (u32 offset = 0x040; offset <= 0x04a; offset += 2)
-        io_write16(offset, 0, IO_DEFAULT);
+        io_write16(offset, 0, MEM_ACCESS_DEFAULT);
 
-    io_write16(0x04c, 0, IO_DEFAULT);
-    io_write16(0x050, 0, IO_DEFAULT);
-    io_write16(0x052, 0, IO_DEFAULT);
-    io_write16(0x054, 0, IO_DEFAULT);
+    io_write16(0x04c, 0, MEM_ACCESS_DEFAULT);
+    io_write16(0x050, 0, MEM_ACCESS_DEFAULT);
+    io_write16(0x052, 0, MEM_ACCESS_DEFAULT);
+    io_write16(0x054, 0, MEM_ACCESS_DEFAULT);
 }
 
 static
 void mbus_reset_io_dma_timers() {
     for (u32 channel = 0; channel < 4; channel++) {
         u32 base = 0x0b0 + channel * 0x0c;
-        io_write16(base + 0x0a, 0, IO_DEFAULT);
+        io_write16(base + 0x0a, 0, MEM_ACCESS_DEFAULT);
     }
 
     for (u32 channel = 0; channel < 4; channel++) {
         u32 base = 0x0b0 + channel * 0x0c;
-        io_write32(base, 0, IO_DEFAULT);
-        io_write32(base + 4, 0, IO_DEFAULT);
-        io_write16(base + 8, 0, IO_DEFAULT);
+        io_write32(base, 0, MEM_ACCESS_DEFAULT);
+        io_write32(base + 4, 0, MEM_ACCESS_DEFAULT);
+        io_write16(base + 8, 0, MEM_ACCESS_DEFAULT);
     }
 
     for (u32 timer = 0; timer < 4; timer++)
-        io_write16(0x102 + timer * 4, 0, IO_DEFAULT);
+        io_write16(0x102 + timer * 4, 0, MEM_ACCESS_DEFAULT);
 
     timer_reset();
 
     for (u32 timer = 0; timer < 4; timer++)
-        io_write16(0x100 + timer * 4, 0, IO_DEFAULT);
+        io_write16(0x100 + timer * 4, 0, MEM_ACCESS_DEFAULT);
 }
 
 void mbus_reset_ram(u32 flags) {
-    io_write16(0x000, 0x0080, IO_DEFAULT);
+    io_write16(0x000, 0x0080, MEM_ACCESS_DEFAULT);
 
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_EWR))
         memset(global_memory_bus.ram.ewr, 0, MEMORY_BUS_EWRAM_SIZE);
@@ -526,43 +526,43 @@ void mbus_reset_ram(u32 flags) {
         memset(global_memory_bus.ram.oam, 0, MEMORY_BUS_OAM_SIZE);
 
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_SERIAL)) {
-        io_write16(0x128, 0, IO_DEFAULT);
-        io_write16(0x134, 0x8000, IO_DEFAULT);
-        io_write16(0x12a, 0, IO_DEFAULT);
-        io_write16(0x140, 0, IO_DEFAULT);
-        io_write32(0x150, 0, IO_DEFAULT);
-        io_write32(0x154, 0, IO_DEFAULT);
+        io_write16(0x128, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x134, 0x8000, MEM_ACCESS_DEFAULT);
+        io_write16(0x12a, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x140, 0, MEM_ACCESS_DEFAULT);
+        io_write32(0x150, 0, MEM_ACCESS_DEFAULT);
+        io_write32(0x154, 0, MEM_ACCESS_DEFAULT);
     }
 
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_SOUND)) {
-        io_write16(0x084, 0, IO_DEFAULT);
-        io_write16(0x060, 0, IO_DEFAULT);
-        io_write16(0x062, 0, IO_DEFAULT);
-        io_write16(0x064, 0, IO_DEFAULT);
-        io_write16(0x068, 0, IO_DEFAULT);
-        io_write16(0x06c, 0, IO_DEFAULT);
-        io_write16(0x070, 0, IO_DEFAULT);
-        io_write16(0x072, 0, IO_DEFAULT);
-        io_write16(0x074, 0, IO_DEFAULT);
-        io_write16(0x078, 0, IO_DEFAULT);
-        io_write16(0x07c, 0, IO_DEFAULT);
-        io_write16(0x080, 0, IO_DEFAULT);
-        io_write16(0x082, 0, IO_DEFAULT);
-        io_write16(0x088, 0x0200, IO_DEFAULT);
+        io_write16(0x084, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x060, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x062, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x064, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x068, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x06c, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x070, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x072, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x074, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x078, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x07c, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x080, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x082, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x088, 0x0200, MEM_ACCESS_DEFAULT);
 
         for (u32 offset = 0x090; offset < 0x0a0; offset += 2)
-            io_write16(offset, 0, IO_DEFAULT);
+            io_write16(offset, 0, MEM_ACCESS_DEFAULT);
     }
 
     if (MASK_ANY_SET(flags, MEM_RESET_RAM_IO)) {
-        io_write16(0x208, 0, IO_DEFAULT);
+        io_write16(0x208, 0, MEM_ACCESS_DEFAULT);
 
         mbus_reset_io_display();
         mbus_reset_io_dma_timers();
 
-        io_write16(0x132, 0, IO_DEFAULT);
-        io_write16(0x200, 0, IO_DEFAULT);
-        io_write16(0x202, 0xffff, IO_DEFAULT);
-        io_write16(0x204, 0, IO_DEFAULT);
+        io_write16(0x132, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x200, 0, MEM_ACCESS_DEFAULT);
+        io_write16(0x202, 0xffff, MEM_ACCESS_DEFAULT);
+        io_write16(0x204, 0, MEM_ACCESS_DEFAULT);
     }
 }

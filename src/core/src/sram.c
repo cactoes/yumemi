@@ -1,7 +1,7 @@
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include "sram.h"
+#include "helper.h"
 
 static sram_t global_sram;
 
@@ -79,7 +79,7 @@ bool sram_is_dirty() {
 }
 
 void sram_write8(u32 address, u8 value, u8 flags) {
-    if (!global_sram.enabled || (flags & SRAM_NOSIDE_EFFECT))
+    if (!global_sram.enabled || (flags & MEM_ACCESS_NOSIDE_EFFECT))
         return;
 
     u32 offset = address & (SRAM_CAPACITY - 1u);

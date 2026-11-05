@@ -15,4 +15,8 @@
 #define MASK_TOGGLE(v, m)       ((v) ^= (m))
 #define MASK_MATCHES(v, m, e)   (((v) & (m)) == (e))
 
+#define MEM_ACCESS_DEFAULT        (0u)
+#define MEM_ACCESS_NOCOUNT        (1u << 0)
+#define MEM_ACCESS_NOSIDE_EFFECT  (1u << 1)
+
 #endif // HELPER_H

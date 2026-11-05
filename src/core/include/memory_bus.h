@@ -35,10 +35,6 @@
 #define MEMORY_BUS_FLASH_START      0x0e000000u
 #define MEMORY_BUS_FLASH_SIZE       0x00010000u
 
-#define MBUS_DEFAULT        (0u)
-#define MBUS_NOCOUNT        (1u << 0)
-#define MBUS_NOSIDE_EFFECT  (1u << 1)
-
 #define MEMORY_ADDRESS_TO_REGION(x) ((u8)(x >> 24))
 #define MEMORY_REGION_TO_ADDRESS(x) ((u32)(x << 24))
 
