@@ -132,6 +132,7 @@ void eeprom_reset(const char* rom_path, u8* rom, u64 rom_size) {
         return;
 
     eeprom_make_sav_path(rom_path, global_eeprom.path, EEPROM_MAX_PATH);
+    printf("eeprom save path: %s\n", global_eeprom.path);
     global_eeprom.persistence_allowed = true;
     eeprom_load();
 }
