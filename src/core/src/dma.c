@@ -3,6 +3,7 @@
 #include "dma.h"
 #include "memory_bus.h"
 #include "gba_io.h"
+#include "eeprom.h"
 
 // TODO @since 30/10/2026 -- 21:35
 // proper dma cycle counts
@@ -36,6 +37,9 @@ void dma_activate_channel(u32 ch) {
 
     dma_ch->remaining = dma_count(ch);
     dma_ch->active = true;
+
+    if (!(dma_ch->control & DMA_WORD) && is_eeprom_address(dma_ch->destination))
+        eeprom_begin_dma_write(dma_ch->remaining);
 }
 
 static

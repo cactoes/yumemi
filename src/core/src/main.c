@@ -16,6 +16,7 @@
 #include "renderer.h"
 #include "wtime.h"
 #include "wwindow.h"
+#include "eeprom.h"
 
 static u32 rom_load_status = ROM_OK;
 static mtx_t rom_mutex;
@@ -36,6 +37,7 @@ u32 load_rom(const char* path) {
     printf("loaded: %s\n", title);
 
     memory_bus_reset(rom_data, rom_size);
+    eeprom_reset(path, rom_data, rom_size);
     dma_reset();
     io_reset();
     flash_reset(path);
@@ -164,6 +166,7 @@ int main(int argc, char** argv) {
 
         ppu_step(cycles);
         timer_step(cycles);
+        eeprom_step(cycles);
 
         render_handle_frame();
     }

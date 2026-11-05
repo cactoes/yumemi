@@ -187,6 +187,8 @@ typedef struct __bios_div_result {
 typedef bool(*arm_instruction_handler_t)(u32 instruction);
 typedef bool(*thumb_instruction_handler_t)(u16 instruction);
 
+cpu_t* get_cpu();
+
 void cpu_reset(bool skip_bios);
 bool cpu_step(u32* cycles);
 

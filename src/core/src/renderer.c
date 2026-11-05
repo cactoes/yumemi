@@ -8,6 +8,7 @@
 #include "flash.h"
 #include "wtime.h"
 #include "wwindow.h"
+#include "eeprom.h"
 
 static Texture2D texture;
 static u32 global_width, global_height;
@@ -161,15 +162,17 @@ void render_handle_frame() {
 
     render_update_events();
 
-    static u32 flash_dirty_counter = 0;
-    if (flash_is_dirty()) {
-        if (flash_dirty_counter++ > 60) {
-            flash_save();
-            flash_mark_clean();
-            flash_dirty_counter = 0;
+    static u32 save_dirty_counter = 0;
+    bool dirty = eeprom_enabled() ? eeprom_is_dirty() : flash_is_dirty();
+    if (dirty) {
+        if (++save_dirty_counter >= 60u) {
+            bool okay = eeprom_enabled() ? eeprom_save() : flash_save();
+            if (okay && !eeprom_enabled())
+                flash_mark_clean();
+            save_dirty_counter = 0;
         }
     } else {
-        flash_dirty_counter = 0;
+        save_dirty_counter = 0;
     }
 
     frame_time_t* ft = &frame_time;

@@ -10,7 +10,6 @@
 
 static cpu_t global_cpu;
 
-static
 cpu_t* get_cpu() {
     return &global_cpu;
 }
