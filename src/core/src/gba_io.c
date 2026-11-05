@@ -104,7 +104,7 @@ u8 io_read8(u32 offset, u8 flags) {
     if (offset >= MEMORY_BUS_IO_SIZE)
         return 0;
 
-    if (offset >= 0x068u && offset <= 0x06fu)
+    if (offset >= SOUND1_L && offset <= SOUND2_H + 3)
         return apu_read8(offset, flags);
 
     return io_base[offset];
@@ -114,9 +114,8 @@ u16 io_read16(u32 offset, u8 flags) {
     if (io_is_timer(offset))
         return io_timer_read16(offset & ~1u);
 
-    if (offset >= 0x068u && offset <= 0x06fu) {
-        return (u16)(io_read8(offset, flags) | ((u16)io_read8(offset + 1u, flags) << 8));
-    }
+    if (offset >= SOUND1_L && offset <= SOUND2_H + 3)
+        return (u16)(io_read8(offset, flags) | ((u16)io_read8(offset + 1, flags) << 8));
 
     if (offset < MEMORY_BUS_IO_SIZE - 1u)
         return (u16)(io_base[offset] | ((u16)io_base[offset + 1u] << 8));
@@ -135,12 +134,12 @@ bool io_is_dma_control_high(u32 offset) {
 
 static
 bool is_apu_write(u32 offset) {
-    return (offset >= 0x068u && offset <= 0x06fu) ||
-        offset == 0x080u || offset == 0x081u ||
-        offset == 0x082u || offset == 0x083u ||
-        offset == 0x084u || offset == 0x085u ||
-        offset == 0x088u || offset == 0x089u ||
-        (offset >= 0x0a0u && offset <= 0x0a7u);
+    return (offset >= SOUND1_L && offset <= SOUND2_H + 3) ||
+            offset == SOUND_L || offset == SOUND_L + 1 ||
+            offset == SOUND_H || offset == SOUND_H + 1 ||
+            offset == SOUND_X || offset == SOUND_X + 1 ||
+            offset == SOUND_BIAS || offset == SOUND_BIAS + 1 ||
+            (offset >= FIFO_A && offset < FIFO_B + 4);
 }
 
 void io_write8(u32 offset, u8 value, u8 flags) {

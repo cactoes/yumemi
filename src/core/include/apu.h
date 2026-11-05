@@ -8,6 +8,9 @@
 #ifndef APU_HP
 #define APU_HP
 
+#define SOUND1_L    0x060u
+#define SOUND1_H    0x062u
+#define SOUND1_X    0x064u
 #define SOUND2_L    0x068u
 #define SOUND2_H    0x06cu
 #define SOUND_L     0x080u
@@ -19,12 +22,15 @@
 
 #define FRAME_CYCLES    32768u
 #define SAMPLE_CYCLES   512u
-#define AUDIO_RATE      32768u
+#define SOURCE_RATE     32768u
+#define AUDIO_RATE      48000u
 #define AUDIO_BLOCK     512u
 #define AUDIO_CAPACITY  8192u
+#define AUDIO_TARGET    1536u
 
 #define FIFO_COUNT 2
 #define AUDIO_QUEUE_COUNT 2
+#define SQUARE_COUNT 2
 
 #include "typedef.h"
 
@@ -45,17 +51,21 @@ typedef struct {
     u32 envelope_timer;
 } square_channel_t;
 
+typedef struct __sound_sweep {
+    u32 shadow_frequency;
+    u32 timer;
+    bool enabled;
+    bool negate_used;
+} sound_sweep_t;
+
 typedef struct __apu {
     sound_fifo_t fifos[FIFO_COUNT];
+    square_channel_t square1;
     square_channel_t square2;
+    sound_sweep_t sweep;
     u32 frame_cycles;
     u32 frame_step;
     u32 sample_cycles;
-    i16 audio_queue[AUDIO_CAPACITY][AUDIO_QUEUE_COUNT];
-    u32 audio_read;
-    u32 audio_count;
-    bool audio_ready;
-    bool audio_muted;
 } apu_t;
 
 void apu_reset();
