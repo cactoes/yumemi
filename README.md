@@ -24,6 +24,11 @@ Open a ROM:
 | RTC                             | Planned |
 | BIOS                            | Mostly (HLE only) |
 
+* rom loading from ZIP
+* frameskip (up to 10 frames)
+* speedup
+* custom HLE bios
+
 ## Controls
 | GBA button | Key |
 |------------|-----|
