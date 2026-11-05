@@ -71,10 +71,12 @@ void render_init(u32 width, u32 height) {
     install_window_menu();
 }
 
+static u32 frames_last_update = 0;
+
 static
 void render_draw_fps() {
     char text[16];
-    snprintf(text, sizeof(text), "%d FPS", GetFPS());
+    snprintf(text, sizeof(text), "%d FPS", frames_last_update);
 
     float fontSize = 24.0f;
     float spacing = 2.0f;
@@ -187,6 +189,21 @@ void render_handle_frame() {
         return;
 
     render_update_events();
+
+    static u64 last_reset = 0;
+    static u32 frames = 0;
+
+    u64 t = time_now_ns();
+    if (last_reset == 0)
+        last_reset = t;
+
+    frames++;
+    u64 elapsed = t - last_reset;
+    if (elapsed >= 500000000ull) {
+        frames_last_update = (u32)(((u64)frames * 1000000000ull) / elapsed);
+        frames = 0;
+        last_reset = t;
+    }
 
     render_update_saves();
 
