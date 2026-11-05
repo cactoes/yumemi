@@ -83,8 +83,22 @@ u32 mbus_get_cycle_count(u32 address, u32 size, bool sequential) {
         case MEMORY_BUS_REGION_ROM_MIRROR_3:
         case MEMORY_BUS_REGION_ROM_MIRROR_4:
         case MEMORY_BUS_REGION_ROM_MIRROR_5: {
-            u32 first = sequential ? 3 : 5;
-            return size == 4 ? first + 3 : first;
+            static const u8 nonseq_wait[4] = { 4, 3, 2, 8 };
+            static const u8 slow_seq_wait[3] = { 2, 4, 8 };
+            static const u8 nonseq_shift[3] = { 2, 5, 8 };
+            static const u8 seq_shift[3] = { 4, 7, 10 };
+
+            u32 ws = ((address >> 24) - 0x08u) >> 1;
+            u16 waitcnt = io_read_raw16(0x0204);
+
+            u32 nonseq_setting = (waitcnt >> nonseq_shift[ws]) & 3u;
+            bool fast_seq = ((waitcnt >> seq_shift[ws]) & 1u) != 0;
+
+            u32 n_cycles = 1 + nonseq_wait[nonseq_setting];
+            u32 s_cycles = 1 + (fast_seq ? 1 : slow_seq_wait[ws]);
+            u32 first_cycles = sequential ? s_cycles : n_cycles;
+
+            return size == 4 ? first_cycles + s_cycles : first_cycles;
         }
         default:
             return 1;
@@ -395,8 +409,9 @@ void mbus_write8(u32 address, u8 value, u8 flags) {
         return;
 
     if (region == MEMORY_BUS_REGION_PALETTE) {
+        u32 offset = (address & (MEMORY_BUS_PALETTE_SIZE - 1u)) & ~1u;
         u16 doubled = (u16)((u16)value | ((u16)value << 8));
-        write_le16(p, doubled);
+        write_le16(global_memory_bus.ram.palette + offset, doubled);
         return;
     }
 

@@ -8,7 +8,7 @@
 #ifndef PPU_H
 #define PPU_H
 
-#define HDRAW_CYCLES       960u
+#define HDRAW_CYCLES       1008u
 #define SCANLINE_CYCLES    1232u
 #define VISIBLE_LINES      160u
 #define TOTAL_LINES        228u
