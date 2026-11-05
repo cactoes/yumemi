@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Chip: flat diamond -->
+  <polygon points="112,512 512,232 912,512 512,792" fill="#111"/>
+
+  <!-- Logo -->
+  <g transform="matrix(1.15 0 0 0.88 201.5 276)" fill="#fff">
+    <circle cx="125" cy="305" r="55"/>
+    <circle cx="225" cy="240" r="88"/>
+    <circle cx="345" cy="275" r="75"/>
+    <circle cx="420" cy="310" r="50"/>
+    <rect x="125" y="285" width="295" height="75"/>
+    <path d="M388 103.6 Q406 150 452.4 168 Q406 186 388 232.4 Q370 186 323.6 168 Q370 150 388 103.6 Z" fill="#111"/>
+    <path d="M388 112 Q403.7 152.3 444 168 Q403.7 183.7 388 224 Q372.3 183.7 332 168 Q372.3 152.3 388 112 Z"/>
+  </g>
+</svg>
