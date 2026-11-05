@@ -40,16 +40,16 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | Test        | Result |
 |-------------|-----|
 | arm         | Success |
-| bios        | Fail |
+| bios        | Fail (missing at least HLE 0x8) |
 | memory      | Success |
-| nes         | Fail |
+| nes         | Fail (001) |
 | ppu         | All Success |
-| flash64     | Fail |
-| flash128    | Fail |
+| flash64     | Fail (006) |
+| flash128    | Fail (006) |
 | (Save) none | Success |
-| sram        | Fail |
+| sram        | Fail (002) |
 | thumb       | Success |
-| unsafe      | Fail |
+| unsafe      | Fail (001) |
 
 ## Sources & Tools
 - [Very Sleepy](http://www.codersnotes.com/sleepy/)
