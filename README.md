@@ -49,7 +49,7 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | (Save) none | Success |
 | sram        | Success |
 | thumb       | Success |
-| unsafe      | Fail (001) |
+| unsafe      | Success |
 
 ## Sources & Tools
 - [Very Sleepy](http://www.codersnotes.com/sleepy/)
