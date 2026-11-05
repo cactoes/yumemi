@@ -61,6 +61,7 @@
 #define SWI_VBLANK_INTR_WAIT        0x05
 #define SWI_BIOS_DIV                0x06
 #define SWI_BIOS_DIV_ARM            0x07
+#define SWI_BIOS_SQRT               0x08
 #define SWI_CPU_SET                 0x0b
 #define SWI_CPU_FAST_SET            0x0c
 #define SWI_BG_AFFINE_SET           0x0e

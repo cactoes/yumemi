@@ -583,6 +583,31 @@ bios_div_result_t bios_div(i32 number, i32 denom) {
 }
 
 static
+u32 bios_hle_sqrt_u32(u32 value) {
+    u32 remainder = value;
+    u32 result = 0;
+    u32 bit = 1u << 30;
+
+    while (bit > remainder)
+        bit >>= 2;
+
+    while (bit != 0u) {
+        u32 trial = result + bit;
+
+        if (remainder >= trial) {
+            remainder -= trial;
+            result = (result >> 1) + bit;
+        } else {
+            result >>= 1;
+        }
+
+        bit >>= 2;
+    }
+
+    return result;
+}
+
+static
 bool bios_hle_dispatch(u32 service) {
     cpu_t* cpu = get_cpu();
     switch (service) {
@@ -608,6 +633,11 @@ bool bios_hle_dispatch(u32 service) {
             cpu->r[0] = (u32)d.quotient;
             cpu->r[1] = (u32)d.remainder;
             cpu->r[3] = d.abs_quotient;
+            return true;
+        }
+        case SWI_BIOS_SQRT: {
+            cpu->r[0] = bios_hle_sqrt_u32(cpu->r[0]);
+            mbus_set_bios_open_bus(0xE3A02004u);
             return true;
         }
         case SWI_CPU_SET:

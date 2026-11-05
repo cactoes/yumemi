@@ -19,10 +19,10 @@ Open a ROM:
 | Timers                          | Done |
 | Interrupts                      | Done |
 | Keypad                          | Done |
-| Save data (SRAM, Flash, EEPROM) | Partial |
-| Save states                     | Partial |
+| Save data (SRAM, Flash, EEPROM) | Done |
+| Save states                     | Done |
 | RTC                             | Planned |
-| BIOS                            | Partial HLE only |
+| BIOS                            | Mostly (HLE only) |
 
 ## Controls
 | GBA button | Key |
@@ -40,7 +40,7 @@ Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
 | Test        | Result |
 |-------------|-----|
 | arm         | Success |
-| bios        | Fail (missing at least HLE 0x8) |
+| bios        | Success |
 | memory      | Success |
 | nes         | Fail (001) |
 | ppu         | Success |
