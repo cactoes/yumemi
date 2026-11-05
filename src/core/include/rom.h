@@ -14,6 +14,8 @@
 #define ROM_ERROR_INVALID_ROM   2
 #define ROM_ERROR_INVALID_SIZE  3
 
+#define ROM_SEARCH_MAX_COUNT    2048
+
 #define ROM_MAX_SIZE 0x02000000u
 
 #include "typedef.h"

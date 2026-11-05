@@ -41,7 +41,7 @@ void open_rom_file_picker() {
     HRESULT hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, &IID_IFileOpenDialog, (void**)&dialog);
 
     if (SUCCEEDED(hr)) {
-        COMDLG_FILTERSPEC filters[] = { { L"Game Boy Advance ROM", L"*.gba" } };
+        COMDLG_FILTERSPEC filters[] = { { L"Game Boy Advance ROM", L"*.gba;*.zip" } };
         IFileOpenDialog_SetFileTypes(dialog, 1, filters);
         hr = IFileOpenDialog_Show(dialog, (HWND)GetWindowHandle());
         if (SUCCEEDED(hr)) {

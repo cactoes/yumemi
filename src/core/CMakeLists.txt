@@ -9,6 +9,15 @@ set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(raylib GIT_REPOSITORY https://github.com/raysan5/raylib.git GIT_TAG 5.5 GIT_SHALLOW TRUE)
 FetchContent_MakeAvailable(raylib)
 
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
+set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
+set(BUILD_NO_STDIO OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(miniz GIT_REPOSITORY https://github.com/richgel999/miniz.git GIT_TAG 3.1.2)
+FetchContent_MakeAvailable(miniz)
+
 enable_language(RC)
 
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS src/*)
@@ -25,6 +34,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE raylib
+    PRIVATE miniz
     PRIVATE ole32)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
