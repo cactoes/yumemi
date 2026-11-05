@@ -19,7 +19,7 @@ void io_write_raw16(u32 offset, u16 value) {
     io_base[offset + 1] = value >> 8;
 }
 
-static
+static inline
 bool io_is_timer(u32 offset) {
     return (offset - IO_TIMER_BASE) <= (IO_TIMER_END - IO_TIMER_BASE);
 }
@@ -109,6 +109,9 @@ u8 io_read8(u32 offset, u8 flags) {
 u16 io_read16(u32 offset, u8 flags) {
     if (io_is_timer(offset))
         return io_timer_read16(offset & ~1u);
+
+    if (offset < MEMORY_BUS_IO_SIZE - 1u)
+        return (u16)(io_base[offset] | ((u16)io_base[offset + 1u] << 8));
 
     return (u16)(io_read8(offset, flags) | (io_read8(offset + 1, flags) << 8));
 }

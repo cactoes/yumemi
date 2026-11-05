@@ -85,11 +85,16 @@ static
 bool irq_should_fire() {
     cpu_t* cpu = get_cpu();
 
+    if (cpu->cpsr & PSR_I)
+        return false;
+
+    if (!(io_read16(IO_IME, IO_NOCOUNT | IO_NOSIDE_EFFECT) & 1))
+        return false;
+
     u16 ie = io_read16(IO_IE, IO_NOCOUNT | IO_NOSIDE_EFFECT);
     u16 iflags = io_read16(IO_IF, IO_NOCOUNT | IO_NOSIDE_EFFECT);
-    u16 ime = io_read16(IO_IME, IO_NOCOUNT | IO_NOSIDE_EFFECT) & 1;
 
-    return ime && (ie & iflags) && !(cpu->cpsr & PSR_I);
+    return (ie & iflags) != 0;
 }
 
 static

@@ -144,63 +144,90 @@ void ppu_on_io_write(u32 offset) {
 }
 
 static
-u32 text_palette_index(u16 control, u32 sx, u32 sy) {
-    u32 tx = sx >> 3;
-    u32 ty = sy >> 3;
-    u32 size = BGCNT_SIZE(control);
-    u32 block = 0;
-
-    if (size == 1)
-        block = tx >> 5;
-    else if (size == 2)
-        block = ty >> 5;
-    else if (size == 3)
-        block = (tx >> 5) + (ty >> 5) * 2u;
-
-    u32 map = BGCNT_MAP_BASE(control) + block * PPU_SCREEN_BLOCK_SIZE;
-    u16 entry = video16(map + ((ty & 31u) * 32u + (tx & 31u)) * 2u);
-    u32 px = sx & 7u;
-    u32 py = sy & 7u;
-
-    if (TILE_ENTRY_HFLIP(entry))
-        px = 7u - px;
-
-    if (TILE_ENTRY_VFLIP(entry))
-        py = 7u - py;
-
-    u32 character = BGCNT_CHAR_BASE(control);
-    u32 tile = TILE_ENTRY_TILE(entry);
-
-    if (BGCNT_COLOR256(control))
-        return video8(character + tile * 64u + py * 8u + px);
-
-    u8 packed = video8(character + tile * 32u + py * 4u + (px >> 1));
-    u32 color = px & 1u ? packed >> 4 : packed & 15u;
-    return color ? TILE_ENTRY_PALBANK(entry) * 16u + color : 0;
-}
-
-static
 void render_text(u32 bg) {
     const ppu_registers_t* regs = &global_ppu.registers;
+    const u8* vram = mbus_get_region(MEMORY_BUS_REGION_VRAM);
+    const u8* palette = mbus_get_region(MEMORY_BUS_REGION_PALETTE);
+
     u16 control = regs->bg_control[bg];
     u32 size = BGCNT_SIZE(control);
-    u32 width = size & 1u ? 512u : 256u;
-    u32 height = size & 2u ? 512u : 256u;
+    u32 width = (size & 1u) ? 512 : 256;
+    u32 height = (size & 2u) ? 512 : 256;
+    u32 map_base = BGCNT_MAP_BASE(control);
+    u32 character = BGCNT_CHAR_BASE(control);
+    bool color256 = BGCNT_COLOR256(control) != 0;
 
     u16 mosaic = register16(PREG_MOSAIC);
-    bool use_mosaic = (control & 0x0040u) != 0;
-    u32 mosaic_h = use_mosaic ? (mosaic & 15u) + 1u : 1u;
-    u32 mosaic_v = use_mosaic ? ((mosaic >> 4) & 15u) + 1u : 1u;
+    bool use_mosaic = (control & 0x0040) != 0;
+    u32 mosaic_h = use_mosaic ? (mosaic & 15u) + 1 : 1;
+    u32 mosaic_v = use_mosaic ? ((mosaic >> 4) & 15u) + 1 : 1;
 
     u32 line = global_ppu.vcount - (global_ppu.vcount % mosaic_v);
-    u32 sy = (line + regs->bg_vofs[bg]) & (height - 1u);
+    u32 sy = (line + regs->bg_vofs[bg]) & (height - 1);
+    u32 ty = sy >> 3;
+    u32 map_row = (ty & 31u) * 64u;
+    u32 source_py = sy & 7u;
 
-    for (u32 x = 0; x < PPU_WIDTH; x++) {
-        u32 mx = x - (x % mosaic_h);
-        u32 sx = (mx + regs->bg_hofs[bg]) & (width - 1u);
-        u32 color = text_palette_index(control, sx, sy);
-        if (color)
-            global_ppu.line.bg_color[bg][x] = palette_color(color);
+    u32 cached_tx = ~0u;
+    u16 tile_colors[8];
+
+    for (u32 x = 0; x < PPU_WIDTH;) {
+        u32 sx = (x + regs->bg_hofs[bg]) & (width - 1);
+        u32 tx = sx >> 3;
+
+        if (tx != cached_tx) {
+            u32 block = 0;
+
+            if (size == 1)
+                block = tx >> 5;
+            else if (size == 2)
+                block = ty >> 5;
+            else if (size == 3)
+                block = (tx >> 5) + (ty >> 5) * 2;
+
+            u32 map_address = map_base + block * PPU_SCREEN_BLOCK_SIZE + map_row + (tx & 31u) * 2;
+            u16 entry = map_address < MEMORY_BUS_VRAM_SIZE - 1 ? read_le16(vram, map_address) : 0;
+            u32 py = TILE_ENTRY_VFLIP(entry) ? 7 - source_py : source_py;
+            u32 tile = TILE_ENTRY_TILE(entry);
+            u32 flip_x = TILE_ENTRY_HFLIP(entry) ? 7 : 0;
+            u32 palette_base = color256 ? 0 : TILE_ENTRY_PALBANK(entry) * 16;
+            u32 row_address = character + tile * (color256 ? 64 : 32) + py * (color256 ? 8 : 4);
+            u8 row_bytes[8];
+            u32 byte_count = color256 ? 8 : 4;
+
+            for (u32 i = 0; i < byte_count; i++) {
+                u32 address = row_address + i;
+                row_bytes[i] = address < MEMORY_BUS_VRAM_SIZE ? vram[address] : 0;
+            }
+
+            for (u32 px = 0; px < 8; px++) {
+                u32 source_px = px ^ flip_x;
+                u32 index;
+
+                if (color256) {
+                    index = row_bytes[source_px];
+                } else {
+                    u8 packed = row_bytes[source_px >> 1];
+                    index = (source_px & 1u) ? packed >> 4 : packed & 15u;
+                }
+
+                tile_colors[px] = index ? read_le16(palette, (palette_base + index) * 2) & 0x7fffu : PIXEL_NONE;
+            }
+
+            cached_tx = tx;
+        }
+
+        u16 color = tile_colors[sx & 7u];
+        u32 end = x + mosaic_h;
+        if (end > PPU_WIDTH)
+            end = PPU_WIDTH;
+
+        if (color != PIXEL_NONE) {
+            for (u32 pixel = x; pixel < end; pixel++)
+                global_ppu.line.bg_color[bg][pixel] = color;
+        }
+
+        x = end;
     }
 }
 
@@ -408,24 +435,6 @@ bool window_contains(u32 position, u16 range) {
 }
 
 static
-u8 pixel_window_mask(u32 x) {
-    const ppu_registers_t* regs = &global_ppu.registers;
-    if (!(regs->display & DISPLAY_WINDOWS))
-        return 0x3fu;
-
-    for (u32 index = 0; index < 2; index++) {
-        if ((regs->display & (DISPLAY_WIN0 << index))
-            && window_contains(global_ppu.vcount, regs->window_v[index])
-            && window_contains(x, regs->window_h[index]))
-            return (u8)((regs->window_in >> (index * 8u)) & 0x3fu);
-    }
-
-    if ((regs->display & DISPLAY_OBJWIN) && global_ppu.line.obj_window[x])
-        return (u8)((regs->window_out >> 8) & 0x3fu);
-    return (u8)(regs->window_out & 0x3fu);
-}
-
-static
 void insert_candidate(ppu_candidate_t pixel, ppu_candidate_t* top, ppu_candidate_t* second) {
     if (pixel.order < top->order) {
         *second = *top;
@@ -481,28 +490,59 @@ u16 apply_effect(ppu_candidate_t top, ppu_candidate_t second, u8 mask) {
 
 static
 void compose_scanline(u32* row) {
+    const ppu_registers_t* regs = &global_ppu.registers;
     u16 backdrop = palette_color(0);
 
+    u32 bg_order[PPU_BG_COUNT];
+    for (u32 bg = 0; bg < PPU_BG_COUNT; bg++)
+        bg_order[bg] = (u32)global_ppu.line.bg_priority[bg] * 8 + 1 + bg;
+
+    bool windows_enabled = (regs->display & DISPLAY_WINDOWS) != 0;
+    bool win0_active = windows_enabled && (regs->display & DISPLAY_WIN0) && window_contains(global_ppu.vcount, regs->window_v[0]);
+    bool win1_active = windows_enabled && (regs->display & (DISPLAY_WIN0 << 1)) && window_contains(global_ppu.vcount, regs->window_v[1]);
+    bool obj_window_enabled = windows_enabled && (regs->display & DISPLAY_OBJWIN);
+
+    u8 win0_mask = (u8)(regs->window_in & 0x3fu);
+    u8 win1_mask = (u8)((regs->window_in >> 8) & 0x3fu);
+    u8 outside_mask = (u8)(regs->window_out & 0x3fu);
+    u8 obj_window_mask = (u8)((regs->window_out >> 8) & 0x3fu);
+
     for (u32 x = 0; x < PPU_WIDTH; x++) {
-        u8 mask = pixel_window_mask(x);
-        ppu_candidate_t top = { backdrop, LAYER_BACKDROP, 100u, false };
+        u8 mask = 0x3fu;
+
+        if (windows_enabled) {
+            if (win0_active && window_contains(x, regs->window_h[0]))
+                mask = win0_mask;
+            else if (win1_active && window_contains(x, regs->window_h[1]))
+                mask = win1_mask;
+            else if (obj_window_enabled && global_ppu.line.obj_window[x])
+                mask = obj_window_mask;
+            else
+                mask = outside_mask;
+        }
+
+        ppu_candidate_t top = { backdrop, LAYER_BACKDROP, 100, false };
         ppu_candidate_t second = { 0, LAYER_BACKDROP, INVALID_ORDER, false };
 
         for (u32 bg = 0; bg < PPU_BG_COUNT; bg++) {
-            if (!(mask & (1u << bg)) || global_ppu.line.bg_color[bg][x] == PIXEL_NONE)
+            if (!(mask & (1u << bg)))
                 continue;
 
-            ppu_candidate_t pixel = {
-                global_ppu.line.bg_color[bg][x], (u8)bg,
-                (u32)global_ppu.line.bg_priority[bg] * 8u + 1u + bg, false
-            };
+            u16 color = global_ppu.line.bg_color[bg][x];
+            if (color == PIXEL_NONE)
+                continue;
+
+            ppu_candidate_t pixel = { color, (u8)bg, bg_order[bg], false };
             insert_candidate(pixel, &top, &second);
         }
 
-        if ((mask & WINDOW_OBJ) && global_ppu.line.obj_color[x] != PIXEL_NONE) {
+        if ((mask & WINDOW_OBJ)
+            && global_ppu.line.obj_color[x] != PIXEL_NONE) {
             ppu_candidate_t pixel = {
-                global_ppu.line.obj_color[x], LAYER_OBJ,
-                (u32)global_ppu.line.obj_priority[x] * 8u, global_ppu.line.obj_semi[x]
+                global_ppu.line.obj_color[x],
+                LAYER_OBJ,
+                (u32)global_ppu.line.obj_priority[x] * 8,
+                global_ppu.line.obj_semi[x]
             };
             insert_candidate(pixel, &top, &second);
         }
