@@ -5,8 +5,8 @@
 
 #pragma once
 
-#ifndef APU_HP
-#define APU_HP
+#ifndef APU_H
+#define APU_H
 
 #define SOUND1_L    0x060u
 #define SOUND1_H    0x062u
@@ -79,4 +79,4 @@ void apu_audio_pump();
 void apu_set_muted(bool muted);
 void apu_audio_close();
 
-#endif // APU_HP
+#endif // APU_H
