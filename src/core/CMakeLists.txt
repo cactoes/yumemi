@@ -21,7 +21,7 @@ FetchContent_MakeAvailable(miniz)
 enable_language(RC)
 
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS src/*)
-add_executable(${PROJECT_NAME} ${SOURCE_FILES} app.rc)
+add_executable(${PROJECT_NAME} WIN32 ${SOURCE_FILES} app.rc)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     C_STANDARD 11

@@ -175,6 +175,22 @@ u8* memory_address_to_ram(u32 address) {
 void memory_bus_reset(u8* rom, u64 size) {
     memory_bus_t* mbus = get_memory_bus();
 
+    if (mbus->ram.iwr) free(mbus->ram.iwr);
+    if (mbus->ram.ewr) free(mbus->ram.ewr);
+    if (mbus->ram.io) free(mbus->ram.io);
+    if (mbus->ram.palette) free(mbus->ram.palette);
+    if (mbus->ram.video) free(mbus->ram.video);
+    if (mbus->ram.oam) free(mbus->ram.oam);
+    if (mbus->rom.data) free(mbus->rom.data);
+
+    memset(mbus, 0, sizeof(memory_bus_t));
+
+    if (!rom || size == 0) {
+        mbus->rom.data = 0;
+        mbus->rom.size = 0;
+        return;
+    }
+    
     mbus->rom.data = rom;
     mbus->rom.size = size;
 
@@ -189,6 +205,8 @@ void memory_bus_reset(u8* rom, u64 size) {
     mbus->last_address = 0xffffffffu;
 
     memset(region_base, 0, sizeof(region_base));
+    region_base[MEMORY_BUS_REGION_BIOS] = mbus->rom.data;
+    region_base[MEMORY_BUS_REGION_ROM] = mbus->rom.data;
     region_base[MEMORY_BUS_REGION_EWRAM] = mbus->ram.ewr;
     region_base[MEMORY_BUS_REGION_IWRAM] = mbus->ram.iwr;
     region_base[MEMORY_BUS_REGION_OAM] = mbus->ram.oam;

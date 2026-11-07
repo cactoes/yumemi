@@ -166,6 +166,7 @@ int main(int argc, char** argv) {
             if (!io_cpu_handle_irq(&cycles)) {
                 if (!cpu_step(&cycles)) {
                     printf("~~~ instruction failed (exiting) ~~~\n");
+                    open_dialog(WW_DIALOG_TYPE_ERROR, "Emulator Error", "An instruction failed to execute.");
                     break;
                 }
             }
@@ -180,8 +181,13 @@ int main(int argc, char** argv) {
 
     apu_audio_close();
     render_close();
+    rom_release();
     free(rom_path);
-    // free(rom_data)
 
     return 0;
+}
+
+int WinMain(void* instance, void* prev_instance, char* cmd_line, int show_cmd) {
+    instance; prev_instance; cmd_line; show_cmd;
+    return main(__argc, __argv);
 }

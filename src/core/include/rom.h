@@ -39,5 +39,6 @@ u32 load_rom_from_path(const char* path, u8** data_out, u64* size_out);
 void get_rom_title(u8* cartridge, char* buffer, u64 buffer_size);
 
 const char* rom_status_to_text(u32 status);
+void rom_release();
 
 #endif // ROM_H

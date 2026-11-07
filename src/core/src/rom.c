@@ -5,6 +5,7 @@
 #include <ctype.h>
 
 #include "rom.h"
+#include "memory_bus.h"
 
 static
 bool rom_has_extension(const char* path, const char* extension) {
@@ -180,4 +181,8 @@ const char* rom_status_to_text(u32 status) {
         case ROM_ERROR_INVALID_SIZE: return "INVALID ROM SIZE";
         default: return "UNKNOWN ROM ERROR";
     }
+}
+
+void rom_release() {
+    memory_bus_reset(NULL, 0);
 }
