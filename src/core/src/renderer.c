@@ -285,7 +285,7 @@ void render_set_speed(u32 value) {
         return;
 
     frame_time.speed_percent = value;
-    apu_set_muted(value != 100);
+    apu_set_muted(value != 100, false);
 }
 
 static

@@ -181,7 +181,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     bool enable = !(state & MF_CHECKED);
 
                     CheckMenuItem(global_emulator_menu, MENU_AUDIO_MUTE, MF_BYCOMMAND | (enable ? MF_CHECKED : MF_UNCHECKED));
-                    apu_set_muted(enable);
+                    apu_set_muted(enable, true);
                     return 0;
                 }
                 case MENU_HELP_KEYBINDS:

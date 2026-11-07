@@ -76,7 +76,7 @@ void apu_write8(u32 offset, u8 value, u8 flags);
 void apu_timer_overflow(u32 timer);
 u32 apu_cycles_until_sample();
 void apu_audio_pump();
-void apu_set_muted(bool muted);
+void apu_set_muted(bool muted, bool force);
 void apu_audio_close();
 bool apu_is_ready();
 

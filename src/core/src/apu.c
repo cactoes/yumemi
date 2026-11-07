@@ -24,6 +24,7 @@ typedef struct __host_audio {
     u64 dropped_frames;
     bool ready;
     bool muted;
+    bool force_muted;
     bool buffering;
     float gain;
     float last[AUDIO_QUEUE_COUNT];
@@ -812,13 +813,27 @@ void apu_audio_pump() {
     mtx_unlock(&host_audio.mutex);
 }
 
-void apu_set_muted(bool muted) {
+void apu_set_muted(bool muted, bool force) {
     if (!host_audio.ready) {
-        host_audio.muted = muted;
+        if (force) {
+            host_audio.force_muted = true;
+            host_audio.muted = muted;
+        } else if (!host_audio.force_muted) {
+            host_audio.muted = muted;
+        }
         return;
     }
 
     mtx_lock(&host_audio.mutex);
+
+    if (!force && host_audio.force_muted) {
+        mtx_unlock(&host_audio.mutex);
+        return;
+    }
+
+    if (force)
+        host_audio.force_muted = true;
+
     bool changed = host_audio.muted != muted;
     host_audio.muted = muted;
     mtx_unlock(&host_audio.mutex);
