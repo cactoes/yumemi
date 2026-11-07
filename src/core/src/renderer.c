@@ -140,8 +140,25 @@ void render_poll_events() {
 static
 void render_handle_events() {
     u16 pressed = 0;
+    i32 gamepad = 0;
+    bool should_speed_up = false;
 
     if (IsWindowFocused()) {
+        if (IsGamepadAvailable(gamepad)) {
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) should_speed_up = true;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) pressed |= GBA_KEY_A;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) pressed |= GBA_KEY_B;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_MIDDLE_LEFT)) pressed |= GBA_KEY_SELECT;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_MIDDLE_RIGHT)) pressed |= GBA_KEY_START;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_LEFT_FACE_LEFT)) pressed |= GBA_KEY_DPAD_LEFT;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_LEFT_FACE_RIGHT)) pressed |= GBA_KEY_DPAD_RIGHT;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_LEFT_FACE_UP)) pressed |= GBA_KEY_DPAD_UP;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) pressed |= GBA_KEY_DPAD_DOWN;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) pressed |= GBA_KEY_L;
+            if (IsGamepadButtonDown(gamepad, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) pressed |= GBA_KEY_R;
+        }
+
+        if (IsKeyDown(KEY_RIGHT_SHIFT) || IsKeyDown(KEY_LEFT_SHIFT)) should_speed_up = true;
         if (IsKeyDown(KEY_Z)) pressed |= GBA_KEY_A;
         if (IsKeyDown(KEY_X)) pressed |= GBA_KEY_B;
         if (IsKeyDown(KEY_BACKSPACE)) pressed |= GBA_KEY_SELECT;
@@ -154,6 +171,7 @@ void render_handle_events() {
         if (IsKeyDown(KEY_Q)) pressed |= GBA_KEY_L;
     }
 
+    render_set_speed(should_speed_up ? 0 : 100);
     io_set_keys_pressed(pressed);
 }
 

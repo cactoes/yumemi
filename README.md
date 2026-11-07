@@ -28,6 +28,7 @@ Open a ROM:
 * frameskip (up to 10 frames)
 * speedup
 * custom HLE bios
+* controller support
 
 ## Controls
 | GBA button | Key |
@@ -39,6 +40,7 @@ Open a ROM:
 | Start      | `Enter` |
 | Select     | `Backspace` |
 | D-pad      | Arrow keys |
+| Speed ip   | Shift |
 
 ## Test results
 Tests taken from here: [gba-test](https://github.com/jsmolka/gba-tests)
