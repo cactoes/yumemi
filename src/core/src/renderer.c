@@ -281,6 +281,9 @@ void render_set_frame_skip(u32 value) {
 }
 
 void render_set_speed(u32 value) {
+    if (frame_time.speed_percent == value)
+        return;
+
     frame_time.speed_percent = value;
     apu_set_muted(value != 100);
 }

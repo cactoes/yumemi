@@ -20,6 +20,7 @@
 
 #include "wwindow.h"
 #include "renderer.h"
+#include "apu.h"
 
 static WNDPROC global_old_wnd_proc;
 static HMENU global_frame_skip_menu;
@@ -170,7 +171,19 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     render_set_enable_fps(enable);
                     return 0;
                 }
+                case MENU_AUDIO_MUTE: {
+                    if (!apu_is_ready()) {
+                        MessageBoxA((HWND)GetWindowHandle(), "Please wait until the emulator has finished loading.", "Audio Not Ready", MB_OK | MB_ICONWARNING);
+                        return 0;
+                    }
 
+                    UINT state = GetMenuState(global_emulator_menu, MENU_AUDIO_MUTE, MF_BYCOMMAND);
+                    bool enable = !(state & MF_CHECKED);
+
+                    CheckMenuItem(global_emulator_menu, MENU_AUDIO_MUTE, MF_BYCOMMAND | (enable ? MF_CHECKED : MF_UNCHECKED));
+                    apu_set_muted(enable);
+                    return 0;
+                }
                 case MENU_HELP_KEYBINDS:
                     show_help_menu();
                     break;
@@ -228,6 +241,10 @@ void install_window_menu() {
     AppendMenuA(global_emulator_menu, MF_SEPARATOR, 0, NULL);
     AppendMenuA(global_emulator_menu, MF_STRING, MENU_TOGGLE_FPS, "Show FPS");
     CheckMenuItem(global_emulator_menu, MENU_TOGGLE_FPS, MF_BYCOMMAND);
+
+    AppendMenuA(global_emulator_menu, MF_SEPARATOR, 0, NULL);
+    AppendMenuA(global_emulator_menu, MF_STRING, MENU_AUDIO_MUTE, "Mute Audio");
+    CheckMenuItem(global_emulator_menu, MENU_AUDIO_MUTE, MF_BYCOMMAND);
 
     HMENU help_menu = CreatePopupMenu();
     AppendMenuA(help_menu, MF_STRING, MENU_HELP_KEYBINDS, "Keybinds");

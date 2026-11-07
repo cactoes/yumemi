@@ -842,3 +842,7 @@ void apu_audio_close() {
     host_audio.ready = false;
     mtx_destroy(&host_audio.mutex);
 }
+
+bool apu_is_ready() {
+    return host_audio.ready;
+}

@@ -78,5 +78,6 @@ u32 apu_cycles_until_sample();
 void apu_audio_pump();
 void apu_set_muted(bool muted);
 void apu_audio_close();
+bool apu_is_ready();
 
 #endif // APU_H
