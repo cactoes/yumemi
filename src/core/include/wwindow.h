@@ -33,7 +33,14 @@
 
 #include "typedef.h"
 
+enum {
+    WW_DIALOG_TYPE_INFO,
+    WW_DIALOG_TYPE_WARNING,
+    WW_DIALOG_TYPE_ERROR
+};
+
 void install_window_menu();
 void disable_import_rom();
+void open_dialog(u32 type, const char* title, const char* message);
 
 #endif // WWINDOW_H

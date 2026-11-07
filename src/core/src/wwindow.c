@@ -275,3 +275,19 @@ void disable_import_rom() {
     EnableMenuItem(global_file_menu, MENU_IMPORT_ROM, MF_BYCOMMAND | MF_GRAYED);
     DrawMenuBar((HWND)GetWindowHandle());
 }
+
+void open_dialog(u32 type, const char* title, const char* message) {
+    UINT mb_type = MB_OK;
+    switch (type) {
+        case WW_DIALOG_TYPE_INFO:
+            mb_type |= MB_ICONINFORMATION;
+            break;
+        case WW_DIALOG_TYPE_WARNING:
+            mb_type |= MB_ICONWARNING;
+            break;
+        case WW_DIALOG_TYPE_ERROR:
+            mb_type |= MB_ICONERROR;
+            break;
+    }
+    MessageBoxA((HWND)GetWindowHandle(), message, title, mb_type);
+}
