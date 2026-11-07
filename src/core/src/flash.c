@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "flash.h"
 #include "helper.h"
+#include "debugger.h"
 
 static flash_t global_flash;
 
@@ -56,7 +57,7 @@ void flash_reset(const char* rom_path) {
     memset(global_flash.flash_data, 0xff, FLASH_CAPACITY_128K);
 
     flash_make_sav_path(rom_path, global_flash.sav_path, sizeof(global_flash.sav_path));
-    printf("flash save path: %s\n", global_flash.sav_path);
+    log("flash save path: %s\n", global_flash.sav_path);
     flash_load();
 }
 

@@ -3,6 +3,7 @@
 #include "memory_bus.h"
 #include "eeprom.h"
 #include "helper.h"
+#include "debugger.h"
 
 static eeprom_t global_eeprom;
 
@@ -77,7 +78,7 @@ bool eeprom_load() {
     }
 
     global_eeprom.size = (u32)size;
-    printf("[EEPROM] loaded %ld bytes\n", size);
+    log("[EEPROM] loaded %ld bytes\n", size);
     return true;
 }
 
@@ -132,7 +133,7 @@ void eeprom_reset(const char* rom_path, u8* rom, u64 rom_size) {
         return;
 
     eeprom_make_sav_path(rom_path, global_eeprom.sav_path, EEPROM_MAX_PATH);
-    printf("eeprom save path: %s\n", global_eeprom.sav_path);
+    log("eeprom save path: %s\n", global_eeprom.sav_path);
     global_eeprom.persistence_allowed = true;
     eeprom_load();
 }

@@ -19,6 +19,7 @@
 #include "eeprom.h"
 #include "sram.h"
 #include "apu.h"
+#include "debugger.h"
 
 static u32 rom_load_status = ROM_OK;
 static mtx_t rom_mutex;
@@ -30,13 +31,13 @@ u32 load_rom(const char* path) {
     u64 rom_size = 0;
     u32 rom_load_result = load_rom_from_path(path, &rom_data, &rom_size);
     if (rom_load_result != 0) {
-        printf("failed to load rom: %d (%s)\n", rom_load_result, path);
+        log("failed to load rom: %d (%s)\n", rom_load_result, path);
         return rom_load_result;
     }
 
     char title[13];
     get_rom_title(rom_data, title, sizeof(title));
-    printf("loaded: %s\n", title);
+    log("loaded: %s\n", title);
 
     memory_bus_reset(rom_data, rom_size);
     eeprom_reset(path, rom_data, rom_size);
@@ -75,7 +76,7 @@ int wait_for_rom() {
     int result = 0;
 
     if (mtx_init(&rom_mutex, mtx_plain) != thrd_success) {
-        printf("failed to create rom mutex\n");
+        log("failed to create rom mutex\n");
         return -1;
     }
 
@@ -106,7 +107,7 @@ int wait_for_rom() {
             error_text = 0;
 
             if (thrd_create(&thread, worker_load_rom, rom_path) != thrd_success) {
-                printf("failed to create rom loading thread\n");
+                log("failed to create rom loading thread\n");
                 result = -1;
                 break;
             }
@@ -137,6 +138,7 @@ int wait_for_rom() {
 }
 
 int main(int argc, char** argv) {
+    debugger_init();
     render_init(PPU_WIDTH, PPU_HEIGHT);
 
     if (argc > 1)
@@ -144,6 +146,7 @@ int main(int argc, char** argv) {
 
     if (wait_for_rom() != 1) {
         CloseWindow();
+        dump_crash_log();
         return 1;
     }
 
@@ -165,8 +168,9 @@ int main(int argc, char** argv) {
         } else {
             if (!io_cpu_handle_irq(&cycles)) {
                 if (!cpu_step(&cycles)) {
-                    printf("~~~ instruction failed (exiting) ~~~\n");
-                    open_dialog(WW_DIALOG_TYPE_ERROR, "Emulator Error", "An instruction failed to execute.");
+                    log("~~~ instruction failed (exiting) ~~~\n");
+                    open_dialog(WW_DIALOG_TYPE_ERROR, "Emulator Error", "An instruction failed to execute. A dump has been made.");
+                    dump_crash_log();
                     break;
                 }
             }

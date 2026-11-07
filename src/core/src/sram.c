@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "sram.h"
 #include "helper.h"
+#include "debugger.h"
 
 static sram_t global_sram;
 
@@ -65,7 +66,7 @@ void sram_reset(const char* rom_path, u8* rom, u64 rom_size) {
         return;
 
     sram_make_sav_path(rom_path, global_sram.sav_path, SRAM_MAX_PATH);
-    printf("sram save path: %s\n", global_sram.sav_path);
+    log("sram save path: %s\n", global_sram.sav_path);
     global_sram.persistence_allowed = true;
     sram_load();
 }

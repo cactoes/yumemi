@@ -7,6 +7,7 @@
 #include "memory_bus.h"
 #include "helper.h"
 #include "gba_io.h"
+#include "debugger.h"
 
 static cpu_t global_cpu;
 
@@ -295,7 +296,7 @@ void bios_hle_set_mode(u32 mode) {
 
 static
 bool bios_hle_soft_reset() {
-    printf("[BIOS HLE] soft reset triggerd\n");
+    log("[BIOS HLE] soft reset triggerd\n");
 
     cpu_t* cpu = get_cpu();
     u8 boot_from_ram = mbus_read8(BIOS_HLE_RESET_FLAG_ADDRESS, MEM_ACCESS_DEFAULT);
@@ -675,7 +676,7 @@ bool bios_hle_dispatch(u32 service) {
         case SWI_LZ77_VRAM:
             return bios_hle_lz77_uncompress(LZ77_VRAM);
         default:
-            printf("unimplemented BIOS HLE service: 0x%02x\n", (unsigned)service);
+            log("unimplemented BIOS HLE service: 0x%02x\n", (unsigned)service);
             return false;
     }
 }
@@ -684,7 +685,7 @@ static
 bool cpu_swi(u32 service) {
     cpu_t* cpu = get_cpu();
     if (!cpu->skip_bios_mode) {
-        printf("unimplemented SWI (bios): 0x%02X\n", service);
+        log("unimplemented SWI (bios): 0x%02X\n", service);
         return false;
     }
 
@@ -1138,7 +1139,7 @@ bool arm_multiply(u32 instruction) {
     u32 rm = instruction & 0xFu;
 
     if (rd == 15 || rs == 15 || rm == 15 || (accumulate && rn == 15)) {
-        printf("undefined arm multiply instruction: 0x%08X\n", instruction);
+        log("undefined arm multiply instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1168,7 +1169,7 @@ bool arm_multiply_long(u32 instruction) {
     u32 rm = instruction & 0xfu;
 
     if (rd_hi == 15 || rd_lo == 15 || rs == 15 || rm == 15 || rd_hi == rd_lo) {
-        printf("undefined arm multiply long instruction: 0x%08X\n", instruction);
+        log("undefined arm multiply long instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1212,7 +1213,7 @@ bool arm_swap(u32 instruction) {
     u32 rm = instruction & 0xFu;
 
     if (rn == 15 || rd == 15 || rm == 15) {
-        printf("undefined arm swap instruction: 0x%08X\n", instruction);
+        log("undefined arm swap instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1247,7 +1248,7 @@ bool arm_halfword_data_transfer(u32 instruction) {
     u32 sh = (instruction >> 5) & 3u;
 
     if (sh == 0 || (!load && sh != 1)) {
-        printf("undefined arm halfword data transfer instruction: 0x%08X\n", instruction);
+        log("undefined arm halfword data transfer instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1304,7 +1305,7 @@ bool arm_mrs(u32 instruction) {
     u32 rd = (instruction >> 12) & 0xfu;
 
     if (rd == 15) {
-        printf("undefined arm mrs instruction: 0x%08X\n", instruction);
+        log("undefined arm mrs instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1326,7 +1327,7 @@ bool arm_msr(u32 instruction) {
     } else {
         u32 rm = instruction & 0xfu;
         if (rm == 15) {
-            printf("undefined arm msr instruction: 0x%08X\n", instruction);
+            log("undefined arm msr instruction: 0x%08X\n", instruction);
             return false;
         }
         value = cpu->r[rm];
@@ -1366,7 +1367,7 @@ bool arm_msr(u32 instruction) {
 static
 bool arm_decode_data_misc(u32 instruction) {
     if (!MASK_MATCHES(instruction, 0x0C000000u, 0u)) {
-        printf("undefined arm decode data misc instruction: 0x%08X\n", instruction);
+        log("undefined arm decode data misc instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1380,7 +1381,7 @@ bool arm_decode_data_misc(u32 instruction) {
                 || MASK_MATCHES(instruction, ARM_DM_HALF_IMM_MASK, ARM_DM_HALF_IMM_VALUE))
                 return arm_halfword_data_transfer(instruction);
 
-            printf("undefined arm decode data misc instruction: 0x%08X\n", instruction);
+            log("undefined arm decode data misc instruction: 0x%08X\n", instruction);
             return false;
         }
 
@@ -1391,7 +1392,7 @@ bool arm_decode_data_misc(u32 instruction) {
         if (MASK_MATCHES(instruction, ARM_DM_SWP_MASK, ARM_DM_SWP_VALUE))
             return arm_swap(instruction);
 
-        printf("undefined arm decode data misc instruction: 0x%08X\n", instruction);
+        log("undefined arm decode data misc instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1403,7 +1404,7 @@ bool arm_decode_data_misc(u32 instruction) {
         return arm_msr(instruction);
 
     if (!arm_data_processing(instruction)) {
-        printf("undefined arm decode data misc instruction: 0x%08X\n", instruction);
+        log("undefined arm decode data misc instruction: 0x%08X\n", instruction);
         return false;
     }
 
@@ -1429,7 +1430,7 @@ bool arm_single_data_transfer(u32 instruction) {
         offset = instruction & 0xfffu;
     } else {
         if (MASK_ANY_SET(instruction, 1u << 4)) {
-            printf("undefined arm single data transfer: 0x%08X\n", instruction);
+            log("undefined arm single data transfer: 0x%08X\n", instruction);
             return false;
         }
 
@@ -1497,7 +1498,7 @@ bool arm_decode_swi_coprocessor(u32 instruction) {
     if (MASK_MATCHES(instruction, 0x0f000000u, 0x0f000000u))
         return cpu_swi((instruction >> 16) & 0xffu);
 
-    printf("unsupported arm coprocessor instruction: 0x%08x\n", instruction);
+    log("unsupported arm coprocessor instruction: 0x%08x\n", instruction);
     return false;
 }
 
@@ -1658,7 +1659,7 @@ bool thumb_shift_immediate(u16 instruction) {
     u32 rd = instruction & 7u;
 
     if (type == 3) {
-        printf("undefined thumb shift immediate instruction: 0x%04x\n", instruction);
+        log("undefined thumb shift immediate instruction: 0x%04x\n", instruction);
         return false;
     }
 
@@ -1803,7 +1804,7 @@ bool thumb_alu_register(u16 instruction) {
             value = ~b;
             break;
         default:
-            printf("undefined thumb alu register instruction: 0x%04x\n", instruction);
+            log("undefined thumb alu register instruction: 0x%04x\n", instruction);
             return false;
     }
 
@@ -1857,7 +1858,7 @@ bool thumb_high_register(u16 instruction) {
         }
         case 3:
             if (MASK_ANY_SET(instruction, 0x0087u)) {
-                printf("undefined thumb high register instruction: 0x%04x\n", instruction);
+                log("undefined thumb high register instruction: 0x%04x\n", instruction);
                 return false;
             }
 
@@ -1866,7 +1867,7 @@ bool thumb_high_register(u16 instruction) {
             return true;
     }
 
-    printf("undefined thumb high register instruction: 0x%04x\n", instruction);
+    log("undefined thumb high register instruction: 0x%04x\n", instruction);
     return false;
 }
 
@@ -2129,7 +2130,7 @@ bool thumb_branch_conditional(u16 instruction) {
         return cpu_swi(instruction & 0xffu);
 
     if (condition == 0xe) {
-        printf("undefined thumb branch conditional instruction: 0x%04x\n", instruction);
+        log("undefined thumb branch conditional instruction: 0x%04x\n", instruction);
         return false;
     }
 
@@ -2203,7 +2204,7 @@ bool thumb_decode_alu_load_store(u16 instruction) {
     if (MASK_MATCHES(instruction, THUMB_FMT_SIGNED_TRANSFER_MASK, THUMB_FMT_SIGNED_TRANSFER_VALUE))
         return thumb_load_store_signed(instruction);
 
-    printf("undefined thumb decode alu load store instruction: 0x%04x\n", instruction);
+    log("undefined thumb decode alu load store instruction: 0x%04x\n", instruction);
     return false;
 }
 
@@ -2226,7 +2227,7 @@ bool thumb_decode_address_stack(u16 instruction) {
     if (MASK_MATCHES(instruction, THUMB_FMT_PUSH_POP_MASK, THUMB_FMT_PUSH_POP_VALUE))
         return thumb_push_pop(instruction);
 
-    printf("undefined thumb decode address stack instruction: 0x%04x\n", instruction);
+    log("undefined thumb decode address stack instruction: 0x%04x\n", instruction);
     return false;
 }
 
@@ -2249,7 +2250,7 @@ bool thumb_decode_branch_long(u16 instruction) {
     if (MASK_MATCHES(instruction, THUMB_FMT_BL_SUFFIX_MASK, THUMB_FMT_BL_SUFFIX_VALUE))
         return thumb_branch_link_suffix(instruction);
 
-    printf("undefined thumb decode branch long instruction: 0x%04x\n", instruction);
+    log("undefined thumb decode branch long instruction: 0x%04x\n", instruction);
     return false;
 }
 
@@ -2270,7 +2271,7 @@ bool thumb_decode(u16 instruction) {
     u16 instruction_handler = (instruction >> 13) & 0x7;
 
     if (thumb_handlers[instruction_handler] == 0) {
-        printf("(thumb) unimplemented handler: %d\n", instruction_handler);
+        log("(thumb) unimplemented handler: %d\n", instruction_handler);
         return false;
     }
 
@@ -2282,7 +2283,7 @@ bool arm_decode(u32 instruction) {
     u32 instruction_handler = (instruction >> 25) & 0x7;
 
     if (arm_handlers[instruction_handler] == 0) {
-        printf("(arm) unimplemented handler: %d\n", instruction_handler);
+        log("(arm) unimplemented handler: %d\n", instruction_handler);
         return false;
     }
 

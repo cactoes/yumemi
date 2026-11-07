@@ -9,6 +9,7 @@
 #include "timer.h"
 #include "eeprom.h"
 #include "sram.h"
+#include "debugger.h"
 
 static memory_bus_t global_memory_bus;
 static const u8 non_seq_waitstates[4] = { 4, 3, 2, 8 };
@@ -247,7 +248,7 @@ u32 mbus_read32(u32 address, u8 flags) {
 
         // TODO @since 30/10/2026 -- 20:25
         // better bios handling
-        printf("mbus_read32 bios address out of range: 0x%08x (returning open bus)\n", address);
+        log("mbus_read32 bios address out of range: 0x%08x (returning open bus)\n", address);
         return mbus_open_bus_read(address, 4, MBUS_OPEN_BUS_BIOS);
     }
 
